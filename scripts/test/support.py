@@ -33,7 +33,7 @@ def _open_archive(tarfile, tmp_dir):
 
 def _files_same(dir1, dir2, basenames):
     diff = filecmp.cmpfiles(dir1, dir2, basenames)
-    return 0 == len(diff[1] + diff[2])
+    return len(diff[1] + diff[2]) == 0
 
 
 def _dirs_same(dir1, dir2, basenames):
@@ -43,8 +43,16 @@ def _dirs_same(dir1, dir2, basenames):
         if not (os.path.isdir(left) and os.path.isdir(right)):
             return False
         diff = filecmp.dircmp(right, right)
-        if 0 != len(diff.left_only + diff.right_only + diff.diff_files +
-                    diff.common_funny + diff.funny_files):
+        if (
+            len(
+                diff.left_only
+                + diff.right_only
+                + diff.diff_files
+                + diff.common_funny
+                + diff.funny_files
+            )
+            != 0
+        ):
             return False
     return True
 
@@ -179,14 +187,18 @@ def run_command(cmd, expected_status=0, stderr=None,
     out, err = proc.communicate()
     code = proc.returncode
     if expected_status is not None and code != expected_status:
-        raise Exception(('run_command failed (%s)' % code, out + str(err or '')))
+        raise Exception((f'run_command failed ({code})', out + str(err or '')))
     if expected_err is not None:
         if err_ignore is not None:
             err = "\n".join([line for line in err.split('\n') if err_ignore not in line])
         err_correct = expected_err in err if err_contains else expected_err == err
         if not err_correct:
-            raise Exception(('run_command unexpected stderr',
-                             "expected '%s', actual '%s'" % (expected_err, err)))
+            raise Exception(
+                (
+                    'run_command unexpected stderr',
+                    f"expected '{expected_err}', actual '{err}'",
+                )
+            )
     return out
 
 

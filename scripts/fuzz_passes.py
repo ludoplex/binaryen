@@ -25,6 +25,7 @@ Usage: Provide a base filename for a runnable program, e.g. a.out.js.
        Other parameters after the first are used when calling the program.
 '''
 
+
 from __future__ import print_function
 
 import os
@@ -51,7 +52,7 @@ PASSES = [
 # main
 
 base = sys.argv[1]
-wast = base[:-3] + '.wast'
+wast = f'{base[:-3]}.wast'
 print('>>> base program:', base, ', wast:', wast)
 
 args = sys.argv[2:]
@@ -98,10 +99,10 @@ try:
         more = True
         while more:
             more = False
-            print('>>> trying to reduce:', ' '.join(passes), '  [' + str(len(passes)) + ']')
+            print('>>> trying to reduce:', ' '.join(passes), f'  [{len(passes)}]')
             for i in range(len(passes)):
                 smaller = passes[:i] + passes[i + 1:]
-                print('>>>>>> try to reduce to:', ' '.join(smaller), '  [' + str(len(smaller)) + ']')
+                print('>>>>>> try to reduce to:', ' '.join(smaller), f'  [{len(smaller)}]')
                 try:
                     apply_passes(smaller)
                     assert run() == normal
@@ -122,7 +123,7 @@ try:
             if random.random() < 0.1 and str_ret not in tested:
                 tested.add(str_ret)
                 return ret
-            ret.append('--' + random.choice(PASSES))
+            ret.append(f'--{random.choice(PASSES)}')
 
     counter = 0
 

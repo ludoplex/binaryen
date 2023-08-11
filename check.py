@@ -35,7 +35,7 @@ def get_changelog_version():
     lines = [l for l in lines if len(l.split()) == 1]
     lines = [l for l in lines if l.startswith('v')]
     version = lines[0][1:]
-    print("Parsed CHANGELOG.md version: %s" % version)
+    print(f"Parsed CHANGELOG.md version: {version}")
     return int(version)
 
 
@@ -53,7 +53,7 @@ def run_version_tests():
 
     changelog_version = get_changelog_version()
     for e in executables:
-        print('.. %s --version' % e)
+        print(f'.. {e} --version')
         out, err = subprocess.Popen([e, '--version'],
                                     stdout=subprocess.PIPE,
                                     stderr=subprocess.PIPE).communicate()
@@ -74,11 +74,11 @@ def run_wasm_dis_tests():
     for t in shared.get_tests(shared.options.binaryen_test, ['.wasm']):
         print('..', os.path.basename(t))
         cmd = shared.WASM_DIS + [t]
-        if os.path.isfile(t + '.map'):
-            cmd += ['--source-map', t + '.map']
+        if os.path.isfile(f'{t}.map'):
+            cmd += ['--source-map', f'{t}.map']
 
         actual = support.run_command(cmd)
-        shared.fail_if_not_identical_to_file(actual, t + '.fromBinary')
+        shared.fail_if_not_identical_to_file(actual, f'{t}.fromBinary')
 
         # also verify there are no validation errors
         def check():
@@ -117,7 +117,7 @@ def run_ctor_eval_tests():
 
     for t in shared.get_tests(shared.get_test_dir('ctor-eval'), ['.wast', '.wasm']):
         print('..', os.path.basename(t))
-        ctors = open(t + '.ctors').read().strip()
+        ctors = open(f'{t}.ctors').read().strip()
         cmd = shared.WASM_CTOR_EVAL + [t, '-all', '-o', 'a.wat', '-S', '--ctors', ctors]
         if 'ignore-external-input' in t:
             cmd += ['--ignore-external-input']
@@ -125,7 +125,7 @@ def run_ctor_eval_tests():
             cmd += ['--kept-exports', 'test1,test3']
         support.run_command(cmd)
         actual = open('a.wat').read()
-        out = t + '.out'
+        out = f'{t}.out'
         shared.fail_if_not_identical_to_file(actual, out)
 
 
@@ -134,13 +134,20 @@ def run_wasm_metadce_tests():
 
     for t in shared.get_tests(shared.get_test_dir('metadce'), ['.wast', '.wasm']):
         print('..', os.path.basename(t))
-        graph = t + '.graph.txt'
-        cmd = shared.WASM_METADCE + [t, '--graph-file=' + graph, '-o', 'a.wat', '-S', '-all']
+        graph = f'{t}.graph.txt'
+        cmd = shared.WASM_METADCE + [
+            t,
+            f'--graph-file={graph}',
+            '-o',
+            'a.wat',
+            '-S',
+            '-all',
+        ]
         stdout = support.run_command(cmd)
-        expected = t + '.dced'
+        expected = f'{t}.dced'
         with open('a.wat') as seen:
             shared.fail_if_not_identical_to_file(seen.read(), expected)
-        shared.fail_if_not_identical_to_file(stdout, expected + '.stdout')
+        shared.fail_if_not_identical_to_file(stdout, f'{expected}.stdout')
 
 
 def run_wasm_reduce_tests():
@@ -155,8 +162,19 @@ def run_wasm_reduce_tests():
         print('..', os.path.basename(t))
         # convert to wasm
         support.run_command(shared.WASM_AS + [t, '-o', 'a.wasm', '-all'])
-        support.run_command(shared.WASM_REDUCE + ['a.wasm', '--command=%s b.wasm --fuzz-exec -all ' % shared.WASM_OPT[0], '-t', 'b.wasm', '-w', 'c.wasm', '--timeout=4'])
-        expected = t + '.txt'
+        support.run_command(
+            shared.WASM_REDUCE
+            + [
+                'a.wasm',
+                f'--command={shared.WASM_OPT[0]} b.wasm --fuzz-exec -all ',
+                '-t',
+                'b.wasm',
+                '-w',
+                'c.wasm',
+                '--timeout=4',
+            ]
+        )
+        expected = f'{t}.txt'
         support.run_command(shared.WASM_DIS + ['c.wasm', '-o', 'a.wat'])
         with open('a.wat') as seen:
             shared.fail_if_not_identical_to_file(seen.read(), expected)
@@ -168,7 +186,17 @@ def run_wasm_reduce_tests():
         # TODO: re-enable multivalue once it is better optimized
         support.run_command(shared.WASM_OPT + [os.path.join(shared.options.binaryen_test, 'signext.wast'), '-ttf', '-Os', '-o', 'a.wasm', '--detect-features', '--disable-multivalue'])
         before = os.stat('a.wasm').st_size
-        support.run_command(shared.WASM_REDUCE + ['a.wasm', '--command=%s b.wasm --fuzz-exec --detect-features' % shared.WASM_OPT[0], '-t', 'b.wasm', '-w', 'c.wasm'])
+        support.run_command(
+            shared.WASM_REDUCE
+            + [
+                'a.wasm',
+                f'--command={shared.WASM_OPT[0]} b.wasm --fuzz-exec --detect-features',
+                '-t',
+                'b.wasm',
+                '-w',
+                'c.wasm',
+            ]
+        )
         after = os.stat('c.wasm').st_size
         # This number is a custom threshold to check if we have shrunk the
         # output sufficiently
@@ -182,7 +210,7 @@ def run_spec_tests():
         base = os.path.basename(wast)
         print('..', base)
         # windows has some failures that need to be investigated
-        if base == 'names.wast' and shared.skip_if_on_windows('spec: ' + base):
+        if base == 'names.wast' and shared.skip_if_on_windows(f'spec: {base}'):
             continue
 
         def run_spec_test(wast):
@@ -207,7 +235,9 @@ def run_spec_tests():
                 if actual != expected:
                     shared.fail(actual, expected)
 
-        expected = os.path.join(shared.get_test_dir('spec'), 'expected-output', base + '.log')
+        expected = os.path.join(
+            shared.get_test_dir('spec'), 'expected-output', f'{base}.log'
+        )
 
         # some spec tests should fail (actual process failure, not just assert_invalid)
         try:
@@ -252,7 +282,14 @@ def run_spec_tests():
 
             # compare all the outputs to the expected output
             actual = run_spec_test('spec.wast')
-            check_expected(actual, os.path.join(shared.get_test_dir('spec'), 'expected-output', base + '.log'))
+            check_expected(
+                actual,
+                os.path.join(
+                    shared.get_test_dir('spec'),
+                    'expected-output',
+                    f'{base}.log',
+                ),
+            )
 
 
 def run_validator_tests():
@@ -281,8 +318,8 @@ def run_example_tests():
     if shared.skip_if_on_windows('example'):
         return
 
+    output_file = 'example'
     for t in shared.get_tests(shared.get_test_dir('example')):
-        output_file = 'example'
         cmd = ['-I' + os.path.join(shared.options.binaryen_root, 't'), '-g', '-pthread', '-o', output_file]
         if not t.endswith(('.c', '.cpp')):
             continue
@@ -290,22 +327,33 @@ def run_example_tests():
         expected = os.path.join(shared.get_test_dir('example'), '.'.join(t.split('.')[:-1]) + '.txt')
         # build the C file separately
         libpath = shared.options.binaryen_lib
-        extra = [shared.NATIVECC, src, '-c', '-o', 'example.o',
-                 '-I' + os.path.join(shared.options.binaryen_root, 'src'), '-g', '-L' + libpath, '-pthread']
+        extra = [
+            shared.NATIVECC,
+            src,
+            '-c',
+            '-o',
+            'example.o',
+            '-I' + os.path.join(shared.options.binaryen_root, 'src'),
+            '-g',
+            f'-L{libpath}',
+            '-pthread',
+        ]
         if src.endswith('.cpp'):
-            extra += ['-std=c++' + str(shared.cxx_standard)]
+            extra += [f'-std=c++{str(shared.cxx_standard)}']
         if os.environ.get('COMPILER_FLAGS'):
-            for f in os.environ.get('COMPILER_FLAGS').split(' '):
-                extra.append(f)
+            extra.extend(iter(os.environ.get('COMPILER_FLAGS').split(' ')))
         print('build: ', ' '.join(extra))
         subprocess.check_call(extra)
         # Link against the binaryen C library DSO, using an executable-relative rpath
-        cmd = ['example.o', '-L' + libpath, '-lbinaryen'] + cmd + ['-Wl,-rpath,' + libpath]
+        cmd = (
+            ['example.o', f'-L{libpath}', '-lbinaryen']
+            + cmd
+            + [f'-Wl,-rpath,{libpath}']
+        )
         print('  ', t, src, expected)
         if os.environ.get('COMPILER_FLAGS'):
-            for f in os.environ.get('COMPILER_FLAGS').split(' '):
-                cmd.append(f)
-        cmd = [shared.NATIVEXX, '-std=c++' + str(shared.cxx_standard)] + cmd
+            cmd.extend(iter(os.environ.get('COMPILER_FLAGS').split(' ')))
+        cmd = [shared.NATIVEXX, f'-std=c++{str(shared.cxx_standard)}'] + cmd
         print('link: ', ' '.join(cmd))
         subprocess.check_call(cmd)
         print('run...', output_file)

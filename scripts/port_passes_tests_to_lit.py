@@ -46,7 +46,7 @@ def port_test(args, test):
         return
 
     joined_passes = base
-    passes_file = os.path.join(test_dir, 'passes', base + '.passes')
+    passes_file = os.path.join(test_dir, 'passes', f'{base}.passes')
     if os.path.exists(passes_file):
         with open(passes_file) as f:
             joined_passes = f.read().strip()
@@ -61,14 +61,15 @@ def port_test(args, test):
             return
 
     passes = joined_passes.split('_')
-    opts = [('--' + p if not p.startswith('O') and p != 'g' else '-' + p)
-            for p in passes]
+    opts = [
+        f'--{p}' if not p.startswith('O') and p != 'g' else f'-{p}'
+        for p in passes
+    ]
 
     run_line = (f';; RUN: foreach %s %t wasm-opt {" ".join(opts)} -S -o -'
                 ' | filecheck %s')
 
-    notice = (f';; NOTE: This test was ported using'
-              ' port_passes_tests_to_lit.py and could be cleaned up.')
+    notice = ';; NOTE: This test was ported using port_passes_tests_to_lit.py and could be cleaned up.'
 
     with open(test, 'r') as src_file:
         with open(dest, 'w') as dest_file:

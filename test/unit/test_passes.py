@@ -14,8 +14,7 @@ class PassesTest(utils.BinaryenTestCase):
             log = shared.run_process(shared.WASM_OPT + [hello_wat] + args,
                                      stderr=subprocess.PIPE).stderr
             print(log)
-            passes = re.findall(r'running pass: ([\w-]+)\.\.\.', log)
-            return passes
+            return re.findall(r'running pass: ([\w-]+)\.\.\.', log)
         finally:
             del os.environ['BINARYEN_PASS_DEBUG']
 

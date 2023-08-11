@@ -123,11 +123,13 @@ def warn(text):
 # Locate Binaryen build artifacts directory (bin/ by default)
 if not options.binaryen_bin:
     if os.environ.get('BINARYEN_ROOT'):
-        if os.path.isdir(os.path.join(os.environ.get('BINARYEN_ROOT'), 'bin')):
-            options.binaryen_bin = os.path.join(
-                os.environ.get('BINARYEN_ROOT'), 'bin')
-        else:
-            options.binaryen_bin = os.environ.get('BINARYEN_ROOT')
+        options.binaryen_bin = (
+            os.path.join(os.environ.get('BINARYEN_ROOT'), 'bin')
+            if os.path.isdir(
+                os.path.join(os.environ.get('BINARYEN_ROOT'), 'bin')
+            )
+            else os.environ.get('BINARYEN_ROOT')
+        )
     else:
         options.binaryen_bin = 'bin'
 
@@ -167,6 +169,7 @@ os.chdir(options.out_dir)
 def which(program):
     def is_exe(fpath):
         return os.path.isfile(fpath) and os.access(fpath, os.X_OK)
+
     fpath, fname = os.path.split(program)
     if fpath:
         if is_exe(program):
@@ -184,12 +187,12 @@ def which(program):
             if is_exe(exe_file):
                 return exe_file
             if '.' not in fname:
-                if is_exe(exe_file + '.exe'):
-                    return exe_file + '.exe'
-                if is_exe(exe_file + '.cmd'):
-                    return exe_file + '.cmd'
-                if is_exe(exe_file + '.bat'):
-                    return exe_file + '.bat'
+                if is_exe(f'{exe_file}.exe'):
+                    return f'{exe_file}.exe'
+                if is_exe(f'{exe_file}.cmd'):
+                    return f'{exe_file}.cmd'
+                if is_exe(f'{exe_file}.bat'):
+                    return f'{exe_file}.bat'
 
 
 WATERFALL_BUILD_DIR = os.path.join(options.binaryen_test, 'wasm-install')
@@ -340,7 +343,7 @@ def fail_with_error(msg):
         num_failures += 1
         raise Exception(msg)
     except Exception as e:
-        print(str(e))
+        print(e)
         if options.abort_on_first_failure:
             raise
 
@@ -512,9 +515,8 @@ def with_pass_debug(check):
     finally:
         if old_pass_debug is not None:
             os.environ['BINARYEN_PASS_DEBUG'] = old_pass_debug
-        else:
-            if 'BINARYEN_PASS_DEBUG' in os.environ:
-                del os.environ['BINARYEN_PASS_DEBUG']
+        elif 'BINARYEN_PASS_DEBUG' in os.environ:
+            del os.environ['BINARYEN_PASS_DEBUG']
 
 
 # checks if we are on windows, and if so logs out that a test is being skipped,
@@ -522,6 +524,6 @@ def with_pass_debug(check):
 # windows, so that we can easily find which tests are skipped.
 def skip_if_on_windows(name):
     if get_platform() == 'windows':
-        print('skipping test "%s" on windows' % name)
+        print(f'skipping test "{name}" on windows')
         return True
     return False

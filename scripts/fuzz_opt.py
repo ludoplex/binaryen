@@ -84,7 +84,7 @@ def random_size():
 
 def make_random_input(input_size, raw_input_data):
     with open(raw_input_data, 'wb') as f:
-        f.write(bytes([random.randint(0, 255) for x in range(input_size)]))
+        f.write(bytes(random.randint(0, 255) for _ in range(input_size)))
 
 
 def run(cmd, stderr=None, silent=False):
@@ -116,7 +116,7 @@ def no_pass_debug():
     try:
         yield
     finally:
-        os.environ.update(old_env)
+        os.environ |= old_env
 
 
 def randomize_feature_opts():
@@ -241,7 +241,7 @@ def init_important_initial_contents():
         # (wat extension is also included)
         p = re.compile(r'^[AM]\stest' + os.sep + r'(.*\.(wat|wast))$')
         matches = [p.match(e) for e in log]
-        auto_set = set([match.group(1) for match in matches if match])
+        auto_set = {match.group(1) for match in matches if match}
         auto_set = auto_set.difference(set(FIXED_IMPORTANT_INITIAL_CONTENTS))
         return sorted(list(auto_set))
 
@@ -259,7 +259,7 @@ def init_important_initial_contents():
 
     print('- Perenially-important initial contents:')
     for test in FIXED_IMPORTANT_INITIAL_CONTENTS:
-        print('  ' + test)
+        print(f'  {test}')
     print()
 
     recent_contents = []
@@ -271,7 +271,7 @@ def init_important_initial_contents():
         print('(manually selected):')
         recent_contents = MANUAL_RECENT_INITIAL_CONTENTS
     for test in recent_contents:
-        print('  ' + test)
+        print(f'  {test}')
     print()
 
     # We prompt the user only when there is no seed given. This fuzz_opt.py is
@@ -279,7 +279,7 @@ def init_important_initial_contents():
     # should not pause for a user input.
     if given_seed is None:
         ret = input('Do you want to proceed with these initial contents? (Y/n) ').lower()
-        if ret != 'y' and ret != '':
+        if ret not in ['y', '']:
             sys.exit(1)
 
     initial_contents = FIXED_IMPORTANT_INITIAL_CONTENTS + recent_contents
@@ -502,10 +502,8 @@ def numbers_are_close_enough(x, y):
         return to_64_bit(x) == to_64_bit(y)
     # float() on the strings will handle many minor differences, like
     # float('1.0') == float('1') , float('inf') == float('Infinity'), etc.
-    try:
+    with contextlib.suppress(Exception):
         return float(x) == float(y)
-    except Exception:
-        pass
     # otherwise, try a full eval which can handle i64s too
     try:
         ex = eval(x)
@@ -524,7 +522,9 @@ def compare_between_vms(x, y, context):
     x_lines = x.splitlines()
     y_lines = y.splitlines()
     if len(x_lines) != len(y_lines):
-        return compare(x, y, context + ' (note: different number of lines between vms)')
+        return compare(
+            x, y, f'{context} (note: different number of lines between vms)'
+        )
 
     num_lines = len(x_lines)
     for i in range(num_lines):
@@ -560,11 +560,12 @@ def fix_output(out):
         else:
             x = x.replace('Infinity', 'inf')
             x = str(float(x))
-        return 'f64.const ' + x
+        return f'f64.const {x}'
+
     out = re.sub(r'f64\.const (-?[nanN:abcdefxIity\d+-.]+)', fix_double, out)
 
     # mark traps from wasm-opt as exceptions, even though they didn't run in a vm
-    out = out.replace(TRAP_PREFIX, 'exception: ' + TRAP_PREFIX)
+    out = out.replace(TRAP_PREFIX, f'exception: {TRAP_PREFIX}')
 
     # funcref(0) has the index of the function in it, and optimizations can
     # change that index, so ignore it
@@ -591,9 +592,12 @@ def fix_spec_output(out):
     out = fix_output(out)
     # spec shows a pointer when it traps, remove that
     out = '\n'.join(map(lambda x: x if 'runtime trap' not in x else x[x.find('runtime trap'):], out.splitlines()))
-    # https://github.com/WebAssembly/spec/issues/543 , float consts are messed up
-    out = '\n'.join(map(lambda x: x if 'f32' not in x and 'f64' not in x else '', out.splitlines()))
-    return out
+    return '\n'.join(
+        map(
+            lambda x: x if 'f32' not in x and 'f64' not in x else '',
+            out.splitlines(),
+        )
+    )
 
 
 ignored_vm_runs = 0
@@ -679,7 +683,7 @@ def run_d8_wasm(wasm, liftoff=True):
 
 
 def all_disallowed(features):
-    return not any(('--enable-' + x) in FEATURE_OPTS for x in features)
+    return all(f'--enable-{x}' not in FEATURE_OPTS for x in features)
 
 
 class TestCaseHandler:
@@ -736,12 +740,19 @@ class CompareVMs(TestCaseHandler):
             def can_compare_to_others(self):
                 return True
 
+
+
         class D8:
             name = 'd8'
 
             def run(self, wasm, extra_d8_flags=[]):
-                run([in_bin('wasm-opt'), wasm, '--emit-js-wrapper=' + wasm + '.js'] + FEATURE_OPTS)
-                return run_vm([shared.V8, wasm + '.js'] + shared.V8_OPTS + extra_d8_flags + ['--', wasm])
+                run([in_bin('wasm-opt'), wasm, f'--emit-js-wrapper={wasm}.js'] + FEATURE_OPTS)
+                return run_vm(
+                    [shared.V8, f'{wasm}.js']
+                    + shared.V8_OPTS
+                    + extra_d8_flags
+                    + ['--', wasm]
+                )
 
             def can_run(self, wasm):
                 # INITIAL_CONTENT is disallowed because some initial spec testcases
@@ -759,6 +770,7 @@ class CompareVMs(TestCaseHandler):
                 # compare to others.
                 return LEGALIZE and not NANS
 
+
         class D8Liftoff(D8):
             name = 'd8_liftoff'
 
@@ -770,6 +782,8 @@ class CompareVMs(TestCaseHandler):
 
             def run(self, wasm):
                 return super(D8TurboFan, self).run(wasm, extra_d8_flags=['--no-liftoff'])
+
+
 
         class Wasm2C:
             name = 'wasm2c'
@@ -802,7 +816,15 @@ class CompareVMs(TestCaseHandler):
             def run(self, wasm):
                 run([in_bin('wasm-opt'), wasm, '--emit-wasm2c-wrapper=main.c'] + FEATURE_OPTS)
                 run(['wasm2c', wasm, '-o', 'wasm.c'])
-                compile_cmd = ['clang', 'main.c', 'wasm.c', os.path.join(self.wasm2c_dir, 'wasm-rt-impl.c'), '-I' + self.wasm2c_dir, '-lm', '-Werror']
+                compile_cmd = [
+                    'clang',
+                    'main.c',
+                    'wasm.c',
+                    os.path.join(self.wasm2c_dir, 'wasm-rt-impl.c'),
+                    f'-I{self.wasm2c_dir}',
+                    '-lm',
+                    '-Werror',
+                ]
                 run(compile_cmd)
                 return run_vm(['./a.out'])
 
@@ -815,6 +837,9 @@ class CompareVMs(TestCaseHandler):
                 # C won't trap on OOB, and NaNs can differ from wasm VMs
                 return not OOB and not NANS
 
+
+
+
         class Wasm2C2Wasm(Wasm2C):
             name = 'wasm2c2wasm'
 
@@ -826,22 +851,25 @@ class CompareVMs(TestCaseHandler):
             def run(self, wasm):
                 run([in_bin('wasm-opt'), wasm, '--emit-wasm2c-wrapper=main.c'] + FEATURE_OPTS)
                 run(['wasm2c', wasm, '-o', 'wasm.c'])
-                compile_cmd = ['emcc', 'main.c', 'wasm.c',
-                               os.path.join(self.wasm2c_dir, 'wasm-rt-impl.c'),
-                               '-I' + self.wasm2c_dir,
-                               '-lm',
-                               '-s', 'ENVIRONMENT=shell',
-                               '-s', 'ALLOW_MEMORY_GROWTH']
+                compile_cmd = [
+                    'emcc',
+                    'main.c',
+                    'wasm.c',
+                    os.path.join(self.wasm2c_dir, 'wasm-rt-impl.c'),
+                    f'-I{self.wasm2c_dir}',
+                    '-lm',
+                    '-s',
+                    'ENVIRONMENT=shell',
+                    '-s',
+                    'ALLOW_MEMORY_GROWTH',
+                ]
                 # disable the signal handler: emcc looks like unix, but wasm has
                 # no signals
                 compile_cmd += ['-DWASM_RT_MEMCHECK_SIGNAL_HANDLER=0']
                 if random.random() < 0.5:
-                    compile_cmd += ['-O' + str(random.randint(1, 3))]
+                    compile_cmd += [f'-O{random.randint(1, 3)}']
                 elif random.random() < 0.5:
-                    if random.random() < 0.5:
-                        compile_cmd += ['-Os']
-                    else:
-                        compile_cmd += ['-Oz']
+                    compile_cmd += ['-Os'] if random.random() < 0.5 else ['-Oz']
                 # avoid pass-debug on the emcc invocation itself (which runs
                 # binaryen to optimize the wasm), as the wasm here can be very
                 # large and it isn't what we are focused on testing here
@@ -856,11 +884,12 @@ class CompareVMs(TestCaseHandler):
                 # prefer not to run if the wasm is very large, as it can OOM
                 # the JS engine.
                 return super(Wasm2C2Wasm, self).can_run(wasm) and self.has_emcc and \
-                    os.path.getsize(wasm) <= INPUT_SIZE_MEAN
+                        os.path.getsize(wasm) <= INPUT_SIZE_MEAN
 
             def can_compare_to_others(self):
                 # NaNs can differ from wasm VMs
                 return not NANS
+
 
         # the binaryen interpreter is specifically useful for various things
         self.bynterpreter = BinaryenInterpreter()
@@ -902,12 +931,16 @@ class CompareVMs(TestCaseHandler):
 
         # compare between the vms on this specific input
         first_vm = None
-        for vm in vm_results.keys():
+        for vm in vm_results:
             if vm.can_compare_to_others():
                 if first_vm is None:
                     first_vm = vm
                 else:
-                    compare_between_vms(vm_results[first_vm], vm_results[vm], 'CompareVMs between VMs: ' + first_vm.name + ' and ' + vm.name)
+                    compare_between_vms(
+                        vm_results[first_vm],
+                        vm_results[vm],
+                        f'CompareVMs between VMs: {first_vm.name} and {vm.name}',
+                    )
 
         return vm_results
 
@@ -915,7 +948,11 @@ class CompareVMs(TestCaseHandler):
         # compare each VM to itself on the before and after inputs
         for vm in before.keys():
             if vm in after and vm.can_compare_to_self():
-                compare(before[vm], after[vm], 'CompareVMs between before and after: ' + vm.name)
+                compare(
+                    before[vm],
+                    after[vm],
+                    f'CompareVMs between before and after: {vm.name}',
+                )
 
     def can_run_on_feature_opts(self, feature_opts):
         return all_disallowed(['simd', 'multivalue', 'multi-memories'])
@@ -943,8 +980,8 @@ class Wasm2JS(TestCaseHandler):
     frequency = 0.1
 
     def handle_pair(self, input, before_wasm, after_wasm, opts):
-        before_wasm_temp = before_wasm + '.temp.wasm'
-        after_wasm_temp = after_wasm + '.temp.wasm'
+        before_wasm_temp = f'{before_wasm}.temp.wasm'
+        after_wasm_temp = f'{after_wasm}.temp.wasm'
         # legalize the before wasm, so that comparisons to the interpreter
         # later make sense (if we don't do this, the wasm may have i64 exports).
         # after applying other necessary fixes, we'll recreate the after wasm
@@ -1005,17 +1042,14 @@ class Wasm2JS(TestCaseHandler):
 
             def fix_number(x):
                 x = x.group(1)
-                try:
+                with contextlib.suppress(ValueError):
                     x = float(x)
                     # There appear to be some cases where JS VMs will print
                     # subnormals in full detail while other VMs do not, and vice
                     # versa. Ignore such really tiny numbers.
                     if is_basically_zero(x):
                         x = 0
-                except ValueError:
-                    # not a floating-point number, nothing to do
-                    pass
-                return ' => ' + str(x)
+                return f' => {str(x)}'
 
             # logging notation is "function_name => result", look for that with
             # a floating-point result that may need to be fixed up
@@ -1047,7 +1081,7 @@ class Wasm2JS(TestCaseHandler):
         main = run(cmd + FEATURE_OPTS)
         with open(os.path.join(shared.options.binaryen_root, 'scripts', 'wasm2js.js')) as f:
             glue = f.read()
-        js_file = wasm + '.js'
+        js_file = f'{wasm}.js'
         with open(js_file, 'w') as f:
             f.write(glue)
             f.write(main)
@@ -1070,8 +1104,8 @@ class Asyncify(TestCaseHandler):
 
     def handle_pair(self, input, before_wasm, after_wasm, opts):
         # we must legalize in order to run in JS
-        async_before_wasm = abspath('async.' + os.path.basename(before_wasm))
-        async_after_wasm = abspath('async.' + os.path.basename(after_wasm))
+        async_before_wasm = abspath(f'async.{os.path.basename(before_wasm)}')
+        async_after_wasm = abspath(f'async.{os.path.basename(after_wasm)}')
         run([in_bin('wasm-opt'), before_wasm, '--legalize-js-interface', '-o', async_before_wasm] + FEATURE_OPTS)
         run([in_bin('wasm-opt'), after_wasm, '--legalize-js-interface', '-o', async_after_wasm] + FEATURE_OPTS)
         before_wasm = async_before_wasm
@@ -1146,12 +1180,9 @@ def filter_exports(wasm, output, keep):
         'reaches': [f'export-{export}' for export in keep],
         'root': True
     }]
-    for export in keep:
-        graph.append({
-            'name': f'export-{export}',
-            'export': export
-        })
-
+    graph.extend(
+        {'name': f'export-{export}', 'export': export} for export in keep
+    )
     with open('graph.json', 'w') as f:
         f.write(json.dumps(graph))
 
@@ -1221,7 +1252,7 @@ class TrapsNeverHappen(TestCaseHandler):
                     safe_exports.append(export)
 
             # filter out the other exports
-            filtered = before_wasm + '.filtered.wasm'
+            filtered = f'{before_wasm}.filtered.wasm'
             filter_exports(before_wasm, filtered, safe_exports)
             before_wasm = filtered
 
@@ -1229,7 +1260,7 @@ class TrapsNeverHappen(TestCaseHandler):
             before = run_bynterp(before_wasm, ['--fuzz-exec-before'])
             assert TRAP_PREFIX not in before, 'we should have fixed this problem'
 
-        after_wasm_tnh = after_wasm + '.tnh.wasm'
+        after_wasm_tnh = f'{after_wasm}.tnh.wasm'
         run([in_bin('wasm-opt'), before_wasm, '-o', after_wasm_tnh, '-tnh'] + opts + FEATURE_OPTS)
         after = run_bynterp(after_wasm_tnh, ['--fuzz-exec-before'])
 
@@ -1266,8 +1297,7 @@ class CtorEval(TestCaseHandler):
         p = re.compile(r'^ [(]export "(.*[^\\]?)" [(]func')
         exports = []
         for line in wat.splitlines():
-            m = p.match(line)
-            if m:
+            if m := p.match(line):
                 export = m[1]
                 exports.append(export)
         if not exports:
@@ -1277,15 +1307,26 @@ class CtorEval(TestCaseHandler):
         # eval the wasm.
         # we can use --ignore-external-input because the fuzzer passes in 0 to
         # all params, which is the same as ctor-eval assumes in this mode.
-        evalled_wasm = wasm + '.evalled.wasm'
-        output = run([in_bin('wasm-ctor-eval'), wasm, '-o', evalled_wasm, '--ctors=' + ctors, '--kept-exports=' + ctors, '--ignore-external-input'] + FEATURE_OPTS)
+        evalled_wasm = f'{wasm}.evalled.wasm'
+        output = run(
+            [
+                in_bin('wasm-ctor-eval'),
+                wasm,
+                '-o',
+                evalled_wasm,
+                f'--ctors={ctors}',
+                f'--kept-exports={ctors}',
+                '--ignore-external-input',
+            ]
+            + FEATURE_OPTS
+        )
 
         # stop here if we could not eval anything at all in the module.
         if '...stopping since could not flatten memory' in output or \
-           '...stopping since could not create module instance' in output:
+               '...stopping since could not create module instance' in output:
             return
         if '...success' not in output and \
-           '...partial evalling success' not in output:
+               '...partial evalling success' not in output:
             return
         evalled_wasm_exec = run_bynterp(evalled_wasm, ['--fuzz-exec-before'])
 
@@ -1413,7 +1454,7 @@ def test_one(random_input, given_wasm):
         # without needing to specify the features
         generate_command = [in_bin('wasm-opt'), random_input, '-ttf', '-o', abspath('a.wasm')] + FUZZ_OPTS + FEATURE_OPTS
         if INITIAL_CONTENTS:
-            generate_command += ['--initial-fuzz=' + INITIAL_CONTENTS]
+            generate_command += [f'--initial-fuzz={INITIAL_CONTENTS}']
         if PRINT_WATS:
             printed = run(generate_command + ['--print'])
             with open('a.printed.wast', 'w') as f:
@@ -1439,11 +1480,11 @@ def test_one(random_input, given_wasm):
 
     # first, find which handlers can even run here
     relevant_handlers = [handler for handler in testcase_handlers if not hasattr(handler, 'get_commands') and handler.can_run_on_feature_opts(FEATURE_OPTS)]
-    if len(relevant_handlers) == 0:
+    if not relevant_handlers:
         return 0
     # filter by frequency
     filtered_handlers = [handler for handler in relevant_handlers if random.random() < handler.frequency]
-    if len(filtered_handlers) == 0:
+    if not filtered_handlers:
         # pick at least one, to not waste the effort we put into making the wasm
         filtered_handlers = [random.choice(relevant_handlers)]
     # run only some of the pair handling handlers. if we ran them all all the
@@ -1451,7 +1492,7 @@ def test_one(random_input, given_wasm):
     # on them in the same amount of time.
     NUM_PAIR_HANDLERS = 3
     used_handlers = set()
-    for i in range(NUM_PAIR_HANDLERS):
+    for _ in range(NUM_PAIR_HANDLERS):
         testcase_handler = random.choice(filtered_handlers)
         if testcase_handler in used_handlers:
             continue
@@ -1473,7 +1514,7 @@ def write_commands(commands, filename):
         f.write('set -e\n')
         for command in commands:
             f.write('echo "%s"\n' % command)
-            pre = 'BINARYEN_PASS_DEBUG=%s ' % (os.environ.get('BINARYEN_PASS_DEBUG') or '0')
+            pre = f"BINARYEN_PASS_DEBUG={os.environ.get('BINARYEN_PASS_DEBUG') or '0'} "
             f.write(pre + command + ' &> /dev/null\n')
         f.write('echo "ok"\n')
 
@@ -1616,9 +1657,9 @@ def get_random_opts():
     # modifiers (if not already implied by a -O? option)
     if '-O' not in str(ret):
         if random.random() < 0.5:
-            ret += ['--optimize-level=' + str(random.randint(0, 3))]
+            ret += [f'--optimize-level={random.randint(0, 3)}']
         if random.random() < 0.5:
-            ret += ['--shrink-level=' + str(random.randint(0, 3))]
+            ret += [f'--shrink-level={random.randint(0, 3)}']
     # possibly converge. don't do this very often as it can be slow.
     if random.random() < 0.05:
         ret += ['--converge']
@@ -1705,12 +1746,24 @@ if __name__ == '__main__':
         mean_of_squares = float(total_input_size_squares) / counter
         stddev = math.sqrt(mean_of_squares - (mean ** 2))
         elapsed = max(0.000001, time.time() - start_time)
-        print('ITERATION:', counter, 'seed:', seed, 'size:', input_size,
-              '(mean:', str(mean) + ', stddev:', str(stddev) + ')',
-              'speed:', counter / elapsed,
-              'iters/sec, ', total_wasm_size / elapsed,
-              'wasm_bytes/sec, ', ignored_vm_runs,
-              'ignored\n')
+        print(
+            'ITERATION:',
+            counter,
+            'seed:',
+            seed,
+            'size:',
+            input_size,
+            '(mean:',
+            f'{str(mean)}, stddev:',
+            f'{str(stddev)})',
+            'speed:',
+            counter / elapsed,
+            'iters/sec, ',
+            total_wasm_size / elapsed,
+            'wasm_bytes/sec, ',
+            ignored_vm_runs,
+            'ignored\n',
+        )
         make_random_input(input_size, raw_input_data)
         assert os.path.getsize(raw_input_data) == input_size
         # remove the generated wasm file, so that we can tell if the fuzzer
@@ -1873,7 +1926,11 @@ After reduction, the reduced file will be in %(working_wasm)s
 
         print('\nInvocations so far:')
         for testcase_handler in testcase_handlers:
-            print('  ', testcase_handler.__class__.__name__ + ':', testcase_handler.count_runs())
+            print(
+                '  ',
+                f'{testcase_handler.__class__.__name__}:',
+                testcase_handler.count_runs(),
+            )
 
     if given_seed is not None:
         if given_seed_passed:

@@ -51,13 +51,20 @@ def generate_wat_files(llvm_bin, emscripten_sysroot):
         is_64 = '64' in src_file
 
         compile_cmd = [
-            os.path.join(llvm_bin, 'clang'), src_path, '-o', obj_path,
-            '-mllvm', '-enable-emscripten-sjlj',
+            os.path.join(llvm_bin, 'clang'),
+            src_path,
+            '-o',
+            obj_path,
+            '-mllvm',
+            '-enable-emscripten-sjlj',
             '-c',
             '-nostdinc',
-            '-Xclang', '-nobuiltininc',
-            '-Xclang', '-nostdsysteminc',
-            '-Xclang', '-I%s/include' % emscripten_sysroot,
+            '-Xclang',
+            '-nobuiltininc',
+            '-Xclang',
+            '-nostdsysteminc',
+            '-Xclang',
+            f'-I{emscripten_sysroot}/include',
             '-O1',
         ]
 
@@ -75,15 +82,12 @@ def generate_wat_files(llvm_bin, emscripten_sysroot):
         if 'longjmp' in src_file:
             link_cmd.append('--strip-debug')
         if is_shared:
-            compile_cmd.append('-fPIC')
-            compile_cmd.append('-fvisibility=default')
-            link_cmd.append('-shared')
-            link_cmd.append('--experimental-pic')
+            compile_cmd.extend(('-fPIC', '-fvisibility=default'))
+            link_cmd.extend(('-shared', '--experimental-pic'))
+        elif 'reserved_func_ptr' in src_file:
+            link_cmd.append('--entry=__main_argc_argv')
         else:
-            if 'reserved_func_ptr' in src_file:
-                link_cmd.append('--entry=__main_argc_argv')
-            else:
-                link_cmd.append('--entry=main')
+            link_cmd.append('--entry=main')
 
         if is_64:
             compile_cmd.append('--target=wasm64-emscripten')

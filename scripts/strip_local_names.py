@@ -3,9 +3,10 @@
 to diff for structural changes, this can help.
 """
 
+
 import sys
 
-for line in open(sys.argv[1]).readlines():
+for line in open(sys.argv[1]):
     if '(local.tee ' in line or '(local.set ' in line or '(local.get ' in line:
         print(line[:line.find('$')])
     else:

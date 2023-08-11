@@ -47,8 +47,7 @@ def download_tar(url, dir):
             temp.write(res.read())
     with tarfile.open(tempfile, 'r') as archive:
         for member in archive.getmembers():
-            match = re.match('^[^/]+/', member.name)
-            if match:
+            if match := re.match('^[^/]+/', member.name):
                 outname = os.path.join(dir, member.name[match.span(0)[1]:])
                 if member.isdir():
                     if not os.path.exists(outname):
@@ -92,7 +91,10 @@ def mozjs_determine_version(platform):
 
 
 def mozjs_download(platform, version):
-    download_zip('https://archive.mozilla.org/pub/firefox/releases/' + version + '/jsshell/jsshell-' + platform + '.zip', mozjs_bin)
+    download_zip(
+        f'https://archive.mozilla.org/pub/firefox/releases/{version}/jsshell/jsshell-{platform}.zip',
+        mozjs_bin,
+    )
     if sys.platform != 'win32':
         os.rename(os.path.join(mozjs_bin, 'js'), os.path.join(mozjs_bin, 'mozjs'))
         os.chmod(os.path.join(mozjs_bin, 'mozjs'), 0o755)
@@ -107,10 +109,10 @@ def mozjs_is_installed():
 def mozjs_main():
     print('Setting up mozjs ...')
     platform = mozjs_determine_platform()
-    print('* Platform: ' + platform)
+    print(f'* Platform: {platform}')
     version = mozjs_determine_version(platform)
-    print('* Latest version: ' + version)
-    print('* Downloading to: ' + mozjs_bin)
+    print(f'* Latest version: {version}')
+    print(f'* Downloading to: {mozjs_bin}')
     mozjs_download(platform, version)
     if mozjs_is_installed():
         print('* Complete')
@@ -137,12 +139,17 @@ def v8_determine_platform():
 
 
 def v8_determine_version(platform):
-    data = fetch_json('https://storage.googleapis.com/chromium-v8/official/canary/v8-' + platform + '-rel-latest.json')
+    data = fetch_json(
+        f'https://storage.googleapis.com/chromium-v8/official/canary/v8-{platform}-rel-latest.json'
+    )
     return data['version']
 
 
 def v8_download(platform, version):
-    download_zip('https://storage.googleapis.com/chromium-v8/official/canary/v8-' + platform + '-rel-' + version + '.zip', v8_bin)
+    download_zip(
+        f'https://storage.googleapis.com/chromium-v8/official/canary/v8-{platform}-rel-{version}.zip',
+        v8_bin,
+    )
     if sys.platform != 'win32':
         os.chmod(os.path.join(v8_bin, 'd8'), 0o755)
 
@@ -154,10 +161,10 @@ def v8_is_installed():
 def v8_main():
     print('Setting up V8 ...')
     platform = v8_determine_platform()
-    print('* Platform: ' + platform)
+    print(f'* Platform: {platform}')
     version = v8_determine_version(platform)
-    print('* Latest version: ' + version)
-    print('* Downloading to: ' + v8_bin)
+    print(f'* Latest version: {version}')
+    print(f'* Downloading to: {v8_bin}')
     v8_download(platform, version)
     if v8_is_installed():
         print('* Complete')
@@ -186,7 +193,7 @@ def wabt_determine_platform():
 def wabt_determine_release(platform):
     data = fetch_json('https://api.github.com/repos/WebAssembly/wabt/releases/latest')
     for asset in data['assets']:
-        if asset['name'].endswith('-' + platform + '.tar.gz'):
+        if asset['name'].endswith(f'-{platform}.tar.gz'):
             return asset['browser_download_url']
     print('Cannot determine release')
     return ''
@@ -203,10 +210,10 @@ def wabt_is_installed():
 def wabt_main():
     print('Setting up WABT ...')
     platform = wabt_determine_platform()
-    print('* Platform: ' + platform)
+    print(f'* Platform: {platform}')
     release = wabt_determine_release(platform)
-    print('* Latest release: ' + release)
-    print('* Downloading to: ' + wabt_bin)
+    print(f'* Latest release: {release}')
+    print(f'* Downloading to: {wabt_bin}')
     wabt_download(release)
     if wabt_is_installed():
         print('* Complete')
@@ -227,18 +234,17 @@ if __name__ == '__main__':
             if len(msg):
                 msg += '|'
             msg += key
-        print('usage: ./setup.py [' + msg + '|all]')
+        print(f'usage: ./setup.py [{msg}|all]')
         sys.exit(0)
     tool = sys.argv[1]
     if tool == 'all':
         for main in TOOLS.values():
-            code = main()
-            if code:
+            if code := main():
                 sys.exit(code)
         sys.exit(0)
     elif TOOLS[tool]:
         main = TOOLS[tool]
         sys.exit(main())
     else:
-        print('No such tool: ' + tool)
+        print(f'No such tool: {tool}')
         sys.exit(1)
