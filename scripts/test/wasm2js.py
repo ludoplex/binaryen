@@ -33,16 +33,15 @@ def check_for_stale_files():
     if shared.options.test_name_filter:
         return
 
-    # TODO(sbc): Generalize and apply other test suites
-    all_tests = []
-    for t in tests + spec_tests + wasm2js_tests:
-        all_tests.append(os.path.basename(os.path.splitext(t)[0]))
-
+    all_tests = [
+        os.path.basename(os.path.splitext(t)[0])
+        for t in tests + spec_tests + wasm2js_tests
+    ]
     all_files = os.listdir(shared.get_test_dir('wasm2js'))
     for f in all_files:
         prefix = f.split('.')[0]
         if prefix not in all_tests:
-            shared.fail_with_error('orphan test output: %s' % f)
+            shared.fail_with_error(f'orphan test output: {f}')
 
 
 def test_wasm2js_output():
@@ -110,7 +109,11 @@ def test_wasm2js_output():
                     all_out += out
 
             shared.fail_if_not_identical_to_file(''.join(all_js), expected_file)
-            expected_out = os.path.join(shared.get_test_dir('spec'), 'expected-output', os.path.basename(t) + '.log')
+            expected_out = os.path.join(
+                shared.get_test_dir('spec'),
+                'expected-output',
+                f'{os.path.basename(t)}.log',
+            )
             if os.path.exists(expected_out):
                 expected_out = open(expected_out).read()
             else:

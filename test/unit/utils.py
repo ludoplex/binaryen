@@ -30,12 +30,11 @@ class BinaryenTestCase(unittest.TestCase):
     def check_features(self, filename, features, opts=[]):
         path = self.input_path(filename)
         cmd = shared.WASM_OPT + \
-            ['--mvp-features', '--print-features', '-o', os.devnull, path] + opts
+                ['--mvp-features', '--print-features', '-o', os.devnull, path] + opts
         p = shared.run_process(cmd, check=False, capture_output=True)
         self.assertEqual(p.returncode, 0)
         self.assertEqual(p.stderr, '')
-        self.assertEqual(p.stdout.splitlines(),
-                         ['--enable-' + f for f in features])
+        self.assertEqual(p.stdout.splitlines(), [f'--enable-{f}' for f in features])
 
     # similar to assertEqual, but while ignoring line ending differences such
     # as those between windows and unix

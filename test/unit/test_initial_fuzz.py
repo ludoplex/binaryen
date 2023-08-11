@@ -13,9 +13,12 @@ class InitialFuzzTest(utils.BinaryenTestCase):
         # generate fuzz from random data with initial empty wasm
         empty_wasm = self.input_path('empty.wasm')
         b = shared.run_process(
-            shared.WASM_OPT + ['-ttf', '--print', data,
-                               '--initial-fuzz=' + empty_wasm],
-            stdout=subprocess.PIPE).stdout
+            (
+                shared.WASM_OPT
+                + ['-ttf', '--print', data, f'--initial-fuzz={empty_wasm}']
+            ),
+            stdout=subprocess.PIPE,
+        ).stdout
 
         # an empty initial wasm causes no changes
         self.assertEqual(a, b)
@@ -23,9 +26,13 @@ class InitialFuzzTest(utils.BinaryenTestCase):
     def test_small_initial(self):
         data = self.input_path('random_data.txt')
         hello_wat = self.input_path('hello_world.wat')
-        out = shared.run_process(shared.WASM_OPT + ['-ttf', '--print', data,
-                                 '--initial-fuzz=' + hello_wat],
-                                 stdout=subprocess.PIPE).stdout
+        out = shared.run_process(
+            (
+                shared.WASM_OPT
+                + ['-ttf', '--print', data, f'--initial-fuzz={hello_wat}']
+            ),
+            stdout=subprocess.PIPE,
+        ).stdout
 
         # the function should be there (perhaps with modified contents - don't
         # check that)

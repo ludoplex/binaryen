@@ -31,20 +31,17 @@ def args_for_finalize(filename):
 def run_test(input_path):
     print('..', input_path)
     is_passive = '.passive.' in input_path
-    mem_file = input_path + '.mem'
+    mem_file = f'{input_path}.mem'
     extension_arg_map = {
         '.out': [],
     }
     if not is_passive:
-        extension_arg_map.update({
-            '.mem.out': ['--separate-data-segments', mem_file],
-        })
+        extension_arg_map['.mem.out'] = ['--separate-data-segments', mem_file]
     for ext, args in extension_arg_map.items():
         expected_file = input_path + ext
         if not os.path.exists(expected_file):
             if ext == '.out':
-                shared.fail_with_error('output ' + expected_file +
-                                       ' does not exist')
+                shared.fail_with_error(f'output {expected_file} does not exist')
             else:
                 continue
 
@@ -60,7 +57,7 @@ def run_test(input_path):
         if ext == '.mem.out':
             with open(mem_file) as mf:
                 mem = mf.read()
-                shared.fail_if_not_identical_to_file(mem, input_path + '.mem.mem')
+                shared.fail_if_not_identical_to_file(mem, f'{input_path}.mem.mem')
             os.remove(mem_file)
 
 
@@ -77,14 +74,12 @@ def update_lld_tests():
     for input_path in shared.get_tests(shared.get_test_dir('lld'), ['.wat', '.wasm']):
         print('..', input_path)
         is_passive = '.passive.' in input_path
-        mem_file = input_path + '.mem'
+        mem_file = f'{input_path}.mem'
         extension_arg_map = {
             '.out': [],
         }
         if not is_passive:
-            extension_arg_map.update({
-                '.mem.out': ['--separate-data-segments', mem_file + '.mem'],
-            })
+            extension_arg_map['.mem.out'] = ['--separate-data-segments', f'{mem_file}.mem']
         for ext, ext_args in extension_arg_map.items():
             out_path = input_path + ext
             if ext != '.out' and not os.path.exists(out_path):

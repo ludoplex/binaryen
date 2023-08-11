@@ -64,10 +64,12 @@ class AsyncifyTest(utils.BinaryenTestCase):
 
     def test_asyncify_onlylist_and_other(self):
         def test(list_name):
-            args = shared.WASM_OPT + [self.input_path('asyncify-pure.wat'),
-                                      '--asyncify',
-                                      '--pass-arg=asyncify-onlylist@main',
-                                      '--pass-arg=asyncify-%slist@main' % list_name]
+            args = shared.WASM_OPT + [
+                self.input_path('asyncify-pure.wat'),
+                '--asyncify',
+                '--pass-arg=asyncify-onlylist@main',
+                f'--pass-arg=asyncify-{list_name}list@main',
+            ]
             proc = shared.run_process(args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False)
             self.assertNotEqual(proc.returncode, 0, 'must error on using both lists at once')
             self.assertIn('It makes no sense to use both an asyncify only-list together with another list', proc.stdout)
@@ -83,7 +85,7 @@ class AsyncifyTest(utils.BinaryenTestCase):
         temp = tempfile.NamedTemporaryFile().name
         with open(temp, 'w') as f:
             f.write('env.sleep')
-        response = test(['--pass-arg=asyncify-imports@@%s' % temp])
+        response = test([f'--pass-arg=asyncify-imports@@{temp}'])
         self.assertEqual(normal, response)
         without = test(['--pass-arg=asyncify-imports@without.anything'])
         self.assertNotEqual(normal, without)

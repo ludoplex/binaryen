@@ -657,18 +657,18 @@ class Node:
         # full instruction leading to this node
         self.inst = inst
 
-    def _common_prefix(a, b):
+    def _common_prefix(self, b):
         """Return the common prefix of two strings."""
         prefix = []
-        while a and b and a[0] == b[0]:
-            prefix.append(a[0])
-            a = a[1:]
+        while self and b and self[0] == b[0]:
+            prefix.append(self[0])
+            self = self[1:]
             b = b[1:]
         return "".join(prefix)
 
     def do_insert(self, full_inst, inst, expr):
         if not inst:
-            assert self.expr is None, "Repeated instruction " + full_inst
+            assert self.expr is None, f"Repeated instruction {full_inst}"
             self.expr = expr
             self.inst = full_inst
             return
@@ -683,8 +683,7 @@ class Node:
             # unique prefix, insert and stop
             self.children[inst] = Node(expr, inst=full_inst)
             return
-        key_remainder = key[len(prefix):]
-        if key_remainder:
+        if key_remainder := key[len(prefix) :]:
             # split key and move everything after the prefix to a new node
             child = self.children.pop(key)
             self.children[prefix] = Node(children={key_remainder: child})
@@ -773,16 +772,16 @@ def print_footer():
 
 
 def generate_with_guard(generator, guard):
-    print("#ifdef {}".format(guard))
-    print("#undef {}".format(guard))
+    print(f"#ifdef {guard}")
+    print(f"#undef {guard}")
     generator()
-    print("#endif // {}".format(guard))
+    print(f"#endif // {guard}")
 
 
 def main():
     if sys.version_info.major != 3:
         import datetime
-        print("It's " + str(datetime.datetime.now().year) + "! Use Python 3!")
+        print(f"It's {datetime.datetime.now().year}! Use Python 3!")
         sys.exit(1)
     print_header()
     generate_with_guard(instruction_parser, "INSTRUCTION_PARSER")

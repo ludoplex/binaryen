@@ -25,7 +25,7 @@ def do_test_binaryen_js_with(which):
 
     node_has_wasm = shared.NODEJS and support.node_has_webassembly(shared.NODEJS)
     if not os.path.exists(which):
-        shared.fail_with_error('no ' + which + ' build to test')
+        shared.fail_with_error(f'no {which} build to test')
 
     print('\n[ checking binaryen.js testcases (' + which + ')... ]\n')
 
@@ -33,25 +33,27 @@ def do_test_binaryen_js_with(which):
         if not s.endswith('.js'):
             continue
         print(s)
-        f = open('a.mjs', 'w')
-        # avoid stdout/stderr ordering issues in some js shells - use just stdout
-        f.write('''
+        with open('a.mjs', 'w') as f:
+            # avoid stdout/stderr ordering issues in some js shells - use just stdout
+            f.write('''
             console.warn = console.error = console.log;
         ''')
-        binaryen_js = open(which).read()
-        f.write(binaryen_js)
-        test_path = os.path.join(shared.options.binaryen_test, 'binaryen.js', s)
-        test_src = open(test_path).read()
-        f.write(support.js_test_wrap().replace('%TEST%', test_src))
-        f.close()
-
+            binaryen_js = open(which).read()
+            f.write(binaryen_js)
+            test_path = os.path.join(shared.options.binaryen_test, 'binaryen.js', s)
+            test_src = open(test_path).read()
+            f.write(support.js_test_wrap().replace('%TEST%', test_src))
         def test(cmd):
             if 'fatal' not in s:
                 out = support.run_command(cmd, stderr=subprocess.STDOUT)
             else:
                 # expect an error - the specific error code will depend on the vm
                 out = support.run_command(cmd, stderr=subprocess.STDOUT, expected_status=None)
-            expected = open(os.path.join(shared.options.binaryen_test, 'binaryen.js', s + '.txt')).read()
+            expected = open(
+                os.path.join(
+                    shared.options.binaryen_test, 'binaryen.js', f'{s}.txt'
+                )
+            ).read()
             if expected not in out:
                 shared.fail(out, expected)
 
@@ -62,7 +64,7 @@ def do_test_binaryen_js_with(which):
             if node_has_wasm or 'WebAssembly.' not in test_src:
                 test([shared.NODEJS, '--experimental-wasm-eh', 'a.mjs'])
             else:
-                print('Skipping ' + test_path + ' because WebAssembly might not be supported')
+                print(f'Skipping {test_path} because WebAssembly might not be supported')
 
 
 def update_binaryen_js_tests():
@@ -79,23 +81,21 @@ def update_binaryen_js_tests():
     for s in shared.get_tests(shared.get_test_dir('binaryen.js'), ['.js']):
         basename = os.path.basename(s)
         print(basename)
-        f = open('a.mjs', 'w')
-        # avoid stdout/stderr ordering issues in some js shells - use just stdout
-        f.write('''
+        with open('a.mjs', 'w') as f:
+            # avoid stdout/stderr ordering issues in some js shells - use just stdout
+            f.write('''
             console.warn = console.error = console.log;
         ''')
-        f.write(open(shared.BINARYEN_JS).read())
-        test_src = open(s).read()
-        f.write(support.js_test_wrap().replace('%TEST%', test_src))
-        f.close()
-
+            f.write(open(shared.BINARYEN_JS).read())
+            test_src = open(s).read()
+            f.write(support.js_test_wrap().replace('%TEST%', test_src))
         def update(cmd):
             if 'fatal' not in basename:
                 out = support.run_command(cmd, stderr=subprocess.STDOUT)
             else:
                 # expect an error - the specific error code will depend on the vm
                 out = support.run_command(cmd, stderr=subprocess.STDOUT, expected_status=None)
-            with open(s + '.txt', 'w') as o:
+            with open(f'{s}.txt', 'w') as o:
                 o.write(out)
 
         # run in available shell
@@ -104,7 +104,7 @@ def update_binaryen_js_tests():
         elif node_has_wasm or 'WebAssembly.' not in test_src:
             update([shared.NODEJS, 'a.mjs'])
         else:
-            print('Skipping ' + basename + ' because WebAssembly might not be supported')
+            print(f'Skipping {basename} because WebAssembly might not be supported')
 
 
 def test_binaryen_js():

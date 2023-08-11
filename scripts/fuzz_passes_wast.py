@@ -89,10 +89,10 @@ try:
         more = True
         while more:
             more = False
-            print('>>> trying to reduce:', ' '.join(passes), '  [' + str(len(passes)) + ']')
+            print('>>> trying to reduce:', ' '.join(passes), f'  [{len(passes)}]')
             for i in range(len(passes)):
                 smaller = passes[:i] + passes[i + 1:]
-                print('>>>>>> try to reduce to:', ' '.join(smaller), '  [' + str(len(smaller)) + ']')
+                print('>>>>>> try to reduce to:', ' '.join(smaller), f'  [{len(smaller)}]')
                 try:
                     apply_passes(smaller)
                     assert run() == normal
@@ -114,7 +114,7 @@ try:
             if random.random() < 0.5 and str_ret not in tested:
                 tested.add(str_ret)
                 return ret
-            ret.append('--' + random.choice(PASSES))
+            ret.append(f'--{random.choice(PASSES)}')
 
     counter = 0
 

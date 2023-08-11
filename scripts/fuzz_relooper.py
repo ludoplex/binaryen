@@ -18,6 +18,7 @@
 This fuzzes the relooper using the C API.
 '''
 
+
 from __future__ import print_function
 
 import difflib
@@ -31,7 +32,7 @@ seed_init *= seed_init
 seed_init %= (2**32)
 
 if os.environ.get('LD_LIBRARY_PATH'):
-    os.environ['LD_LIBRARY_PATH'] += os.pathsep + 'lib'
+    os.environ['LD_LIBRARY_PATH'] += f'{os.pathsep}lib'
 else:
     os.environ['LD_LIBRARY_PATH'] = 'lib'
 
@@ -56,9 +57,7 @@ while True:
     # with some probability print the same id for different blocks,
     # as the printing is the block contents - allow merging etc. opts
     def printed_id(i):
-        if random.random() < 0.5:
-            return i
-        return i % max_printed
+        return i if random.random() < 0.5 else i % max_printed
 
     printed_ids = [printed_id(i) for i in range(num)]
 
@@ -197,10 +196,7 @@ int main() {
         bc = branch_codes[i]
 
         def get_phi(j):
-            phi = ''
-            if bc[j]:
-                phi = 'index += %d; ' % bc[j]
-            return phi
+            return 'index += %d; ' % bc[j] if bc[j] else ''
 
         for j in range(len(b)):
             slow += '    if (state %% %d == %d) { %s label = %d; break }\n' % (
@@ -246,10 +242,8 @@ int main() {
         bc = branch_codes[i]
 
         def get_phi(j):
-            phi = 'NULL'
-            if bc[j]:
-                # increment the index of global state
-                phi = '''
+            return (
+                '''
     BinaryenStore(module,
       4, 0, 0,
       BinaryenConst(module, BinaryenLiteralInt32(4)),
@@ -260,8 +254,11 @@ int main() {
         BinaryenConst(module, BinaryenLiteralInt32(4 * %d))
       ),
       BinaryenTypeInt32()
-    )''' % bc[j]
-            return phi
+    )'''
+                % bc[j]
+                if bc[j]
+                else 'NULL'
+            )
 
         for j in range(len(b)):
             if use_switch[i]:

@@ -36,26 +36,41 @@ def update_example_tests():
         cmd = ['-I' + os.path.join(shared.options.binaryen_root, 'src'), '-g', '-pthread', '-o', output_file]
         if not src.endswith(('.c', '.cpp')):
             continue
-        expected = os.path.splitext(src)[0] + '.txt'
+        expected = f'{os.path.splitext(src)[0]}.txt'
         # windows + gcc will need some work
         if shared.skip_if_on_windows('gcc'):
             return
         # build the C file separately
-        extra = [os.environ.get('CC') or 'gcc',
-                 src, '-c', '-o', 'example.o',
-                 '-I' + os.path.join(shared.options.binaryen_root, 'src'), '-g', '-L' + libdir, '-pthread']
+        extra = [
+            os.environ.get('CC') or 'gcc',
+            src,
+            '-c',
+            '-o',
+            'example.o',
+            '-I' + os.path.join(shared.options.binaryen_root, 'src'),
+            '-g',
+            f'-L{libdir}',
+            '-pthread',
+        ]
         print('build: ', ' '.join(extra))
         if src.endswith('.cpp'):
-            extra += ['-std=c++' + str(shared.cxx_standard)]
+            extra += [f'-std=c++{str(shared.cxx_standard)}']
         print(os.getcwd())
         subprocess.check_call(extra)
         # Link against the binaryen C library DSO, using rpath
-        cmd = ['example.o', '-L' + libdir, '-lbinaryen', '-Wl,-rpath,' + os.path.abspath(libdir)] + cmd
+        cmd = [
+            'example.o',
+            f'-L{libdir}',
+            '-lbinaryen',
+            f'-Wl,-rpath,{os.path.abspath(libdir)}',
+        ] + cmd
         print('    ', basename, src, expected)
         if os.environ.get('COMPILER_FLAGS'):
-            for f in os.environ.get('COMPILER_FLAGS').split(' '):
-                cmd.append(f)
-        cmd = [os.environ.get('CXX') or 'g++', '-std=c++' + str(shared.cxx_standard)] + cmd
+            cmd.extend(iter(os.environ.get('COMPILER_FLAGS').split(' ')))
+        cmd = [
+            os.environ.get('CXX') or 'g++',
+            f'-std=c++{str(shared.cxx_standard)}',
+        ] + cmd
         try:
             print('link: ', ' '.join(cmd))
             subprocess.check_call(cmd)
@@ -74,18 +89,18 @@ def update_wasm_dis_tests():
     for t in shared.get_tests(shared.options.binaryen_test, ['.wasm']):
         print('..', os.path.basename(t))
         cmd = shared.WASM_DIS + [t]
-        if os.path.isfile(t + '.map'):
-            cmd += ['--source-map', t + '.map']
+        if os.path.isfile(f'{t}.map'):
+            cmd += ['--source-map', f'{t}.map']
         actual = support.run_command(cmd)
 
-        open(t + '.fromBinary', 'w').write(actual)
+        open(f'{t}.fromBinary', 'w').write(actual)
 
 
 def update_ctor_eval_tests():
     print('\n[ checking wasm-ctor-eval... ]\n')
     for t in shared.get_tests(shared.get_test_dir('ctor-eval'), ['.wast', '.wasm']):
         print('..', os.path.basename(t))
-        ctors = open(t + '.ctors').read().strip()
+        ctors = open(f'{t}.ctors').read().strip()
         cmd = shared.WASM_CTOR_EVAL + [t, '-all', '-o', 'a.wast', '-S', '--ctors', ctors]
         if 'ignore-external-input' in t:
             cmd += ['--ignore-external-input']
@@ -93,7 +108,7 @@ def update_ctor_eval_tests():
             cmd += ['--kept-exports', 'test1,test3']
         support.run_command(cmd)
         actual = open('a.wast').read()
-        out = t + '.out'
+        out = f'{t}.out'
         with open(out, 'w') as o:
             o.write(actual)
 
@@ -102,14 +117,21 @@ def update_metadce_tests():
     print('\n[ checking wasm-metadce... ]\n')
     for t in shared.get_tests(shared.get_test_dir('metadce'), ['.wast', '.wasm']):
         print('..', os.path.basename(t))
-        graph = t + '.graph.txt'
-        cmd = shared.WASM_METADCE + [t, '--graph-file=' + graph, '-o', 'a.wast', '-S', '-all']
+        graph = f'{t}.graph.txt'
+        cmd = shared.WASM_METADCE + [
+            t,
+            f'--graph-file={graph}',
+            '-o',
+            'a.wast',
+            '-S',
+            '-all',
+        ]
         stdout = support.run_command(cmd)
         actual = open('a.wast').read()
-        out = t + '.dced'
+        out = f'{t}.dced'
         with open(out, 'w') as o:
             o.write(actual)
-        with open(out + '.stdout', 'w') as o:
+        with open(f'{out}.stdout', 'w') as o:
             o.write(stdout)
 
 
@@ -119,8 +141,20 @@ def update_reduce_tests():
         print('..', os.path.basename(t))
         # convert to wasm
         support.run_command(shared.WASM_AS + [t, '-o', 'a.wasm', '-all'])
-        print(support.run_command(shared.WASM_REDUCE + ['a.wasm', '--command=%s b.wasm --fuzz-exec -all' % shared.WASM_OPT[0], '-t', 'b.wasm', '-w', 'c.wasm']))
-        expected = t + '.txt'
+        print(
+            support.run_command(
+                shared.WASM_REDUCE
+                + [
+                    'a.wasm',
+                    f'--command={shared.WASM_OPT[0]} b.wasm --fuzz-exec -all',
+                    '-t',
+                    'b.wasm',
+                    '-w',
+                    'c.wasm',
+                ]
+            )
+        )
+        expected = f'{t}.txt'
         support.run_command(shared.WASM_DIS + ['c.wasm', '-o', expected])
 
 
@@ -131,7 +165,11 @@ def update_spec_tests():
         print('..', os.path.basename(t))
 
         cmd = shared.WASM_SHELL + [t]
-        expected = os.path.join(shared.get_test_dir('spec'), 'expected-output', os.path.basename(t) + '.log')
+        expected = os.path.join(
+            shared.get_test_dir('spec'),
+            'expected-output',
+            f'{os.path.basename(t)}.log',
+        )
         if os.path.isfile(expected):
             stdout = support.run_command(cmd, stderr=subprocess.PIPE)
             # filter out binaryen interpreter logging that the spec suite
@@ -148,19 +186,27 @@ def update_lit_tests():
                           'scripts',
                           'update_lit_checks.py')
     lit_dir = shared.get_test_dir('lit')
-    subprocess.check_output([sys.executable,
-                             script,
-                             '--binaryen-bin=' + shared.options.binaryen_bin,
-                             os.path.join(lit_dir, '**', '*.wast'),
-                             os.path.join(lit_dir, '**', '*.wat')])
+    subprocess.check_output(
+        [
+            sys.executable,
+            script,
+            f'--binaryen-bin={shared.options.binaryen_bin}',
+            os.path.join(lit_dir, '**', '*.wast'),
+            os.path.join(lit_dir, '**', '*.wat'),
+        ]
+    )
 
     # Update the help lit tests
     script = os.path.join(shared.options.binaryen_root,
                           'scripts',
                           'update_help_checks.py')
-    subprocess.check_output([sys.executable,
-                             script,
-                             '--binaryen-bin=' + shared.options.binaryen_bin])
+    subprocess.check_output(
+        [
+            sys.executable,
+            script,
+            f'--binaryen-bin={shared.options.binaryen_bin}',
+        ]
+    )
 
 
 TEST_SUITES = OrderedDict([

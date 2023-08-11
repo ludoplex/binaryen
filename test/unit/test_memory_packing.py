@@ -32,7 +32,7 @@ class MemoryPackingTest(utils.BinaryenTestCase):
 
     def test_large_segment_unmergeable(self):
         data = '\n'.join('(data (i32.const %i) "A")' % i for i in range(100001))
-        module = '(module (memory 256 256) %s)' % data
+        module = f'(module (memory 256 256) {data})'
         opts = ['--memory-packing', '--enable-bulk-memory', '--print',
                 '-o', os.devnull]
         p = shared.run_process(shared.WASM_OPT + opts, input=module,

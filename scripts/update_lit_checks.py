@@ -121,9 +121,10 @@ def split_modules(text):
         return [text]
     first_module = text[:module_starts[1]]
     modules = [first_module]
-    for i in range(1, len(module_starts) - 1):
-        module = text[module_starts[i]:module_starts[i + 1]]
-        modules.append(module)
+    modules.extend(
+        text[module_starts[i] : module_starts[i + 1]]
+        for i in range(1, len(module_starts) - 1)
+    )
     last_module = text[module_starts[-1]:]
     modules.append(last_module)
     return modules
@@ -149,8 +150,7 @@ def parse_output_fuzz_exec(text):
     # module boundaries are, so always just returns items for a single module.
     items = []
     for line in text.split('\n'):
-        func = FUZZ_EXEC_FUNC.match(line)
-        if func:
+        if func := FUZZ_EXEC_FUNC.match(line):
             # Add quotes around the name because that is how it will be parsed
             # in the input.
             name = f'"{func.group("name")}"'
@@ -183,8 +183,7 @@ def get_command_output(args, kind, test, lines, tmp):
 
         prefix = ''
         if filecheck_cmd.startswith('filecheck '):
-            prefix_match = CHECK_PREFIX_RE.match(filecheck_cmd)
-            if prefix_match:
+            if prefix_match := CHECK_PREFIX_RE.match(filecheck_cmd):
                 prefix = prefix_match.group(1)
             else:
                 prefix = 'CHECK'
@@ -216,15 +215,17 @@ def update_test(args, test, lines, tmp):
             all_items = True
         output = re.search(r'--output=(?P<kind>\S*)', lines[0])
         if output:
-            output_kind = output.group('kind')
+            output_kind = output['kind']
         # Skip the notice if it is already in the output
         lines = lines[1:]
 
     command_output = get_command_output(args, output_kind, test, lines, tmp)
 
-    prefixes = set(prefix
-                   for module_output in command_output
-                   for prefix in module_output.keys())
+    prefixes = {
+        prefix
+        for module_output in command_output
+        for prefix in module_output.keys()
+    }
     check_line_re = re.compile(r'^\s*;;\s*(' + '|'.join(prefixes) +
                                r')(?:-NEXT|-LABEL|-NOT)?:.*$')
 
@@ -254,7 +255,8 @@ def update_test(args, test, lines, tmp):
 
     def emit_checks(indent, prefix, lines):
         def pad(line):
-            return line if not line or line.startswith(' ') else ' ' + line
+            return line if not line or line.startswith(' ') else f' {line}'
+
         output_lines.append(f'{indent};; {prefix}:     {pad(lines[0])}')
         for line in lines[1:]:
             output_lines.append(f'{indent};; {prefix}-NEXT:{pad(line)}')

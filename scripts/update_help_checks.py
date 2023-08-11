@@ -36,8 +36,8 @@ def main():
         command = [tool_path, '--help']
         print(command)
         output = subprocess.check_output(command).decode('utf-8')
-        with open(os.path.join(test_dir, tool + '.test'), 'w') as out:
-            out.write(f';; RUN: {tool} --help | filecheck %s' + os.linesep)
+        with open(os.path.join(test_dir, f'{tool}.test'), 'w') as out:
+            out.write(f';; RUN: {tool} --help | filecheck %s{os.linesep}')
             first = True
             for line in output.splitlines():
                 if first:
