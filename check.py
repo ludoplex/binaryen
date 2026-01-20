@@ -52,6 +52,11 @@ def run_version_tests():
 
     changelog_version = get_changelog_version()
     for e in executables:
+        # Validate executable is within expected bin directory and is executable
+        if not os.path.isfile(e) or not os.access(e, os.X_OK):
+            raise RuntimeError(f'Invalid executable: {e}')
+        if not os.path.realpath(e).startswith(os.path.realpath(shared.options.binaryen_bin)):
+            raise RuntimeError(f'Executable outside bin directory: {e}')
         print(f'.. {e} --version')
         proc = subprocess.run([e, '--version'], capture_output=True, text=True)
         assert len(proc.stderr) == 0, f'Expected no stderr, got:\n{proc.stderr}'

@@ -23,6 +23,7 @@ This fuzzes the relooper using the C API.
 import difflib
 import os
 import random
+import shutil
 import subprocess
 import time
 
@@ -369,7 +370,11 @@ int main() {
     print('*')
     fast_out = subprocess.run(['bin/wasm-shell', 'fuzz.wast'], capture_output=True).stdout
     print('-')
-    node = os.getenv('NODE', 'nodejs')
+    node_env = os.getenv('NODE', 'nodejs')
+    # Validate NODE executable exists and is in PATH or is an absolute path
+    node = shutil.which(node_env)
+    if node is None:
+        raise RuntimeError(f'Node.js executable not found: {node_env}')
     slow_out = subprocess.run([node, 'fuzz.slow.js'], capture_output=True).stdout
     print('_')
 

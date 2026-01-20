@@ -68,6 +68,10 @@ ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 # The path to the wasm-opt binary that we run to generate testcases.
 FUZZER_BINARY_PATH = os.path.join(ROOT_DIR, 'bin', 'wasm-opt')
 
+# Validate that the wasm-opt binary exists and is executable
+if not os.path.isfile(FUZZER_BINARY_PATH) or not os.access(FUZZER_BINARY_PATH, os.X_OK):
+    raise RuntimeError(f'wasm-opt binary not found or not executable: {FUZZER_BINARY_PATH}')
+
 # The path to the fuzz_shell.js script that will execute the wasm in each
 # testcase.
 JS_SHELL_PATH = os.path.join(ROOT_DIR, 'scripts', 'fuzz_shell.js')
