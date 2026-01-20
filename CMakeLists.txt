@@ -496,6 +496,43 @@ if(EMSCRIPTEN)
   target_link_libraries(binaryen_js debug "--profiling")
   target_link_libraries(binaryen_js debug "-sASSERTIONS")
   install(TARGETS binaryen_js DESTINATION ${CMAKE_INSTALL_BINDIR})
+
+  # binaryen_wasm_standalone - Standalone WASM module without JS wrapper
+  # This produces a .wasm file that can be used directly with WAMR, wasmtime, etc.
+  # Usage: emcmake cmake -DBUILD_STANDALONE_WASM=ON ..
+  option(BUILD_STANDALONE_WASM "Build standalone WASM module (no JS wrapper)" OFF)
+  if(BUILD_STANDALONE_WASM)
+    add_executable(binaryen_wasm_standalone
+                   ${binaryen_emscripten_SOURCES})
+    target_link_libraries(binaryen_wasm_standalone wasm asmjs emscripten-optimizer passes ir cfg support analysis wasm)
+    # Standalone mode - WASI compatible, no JS glue
+    target_link_libraries(binaryen_wasm_standalone "-sSTANDALONE_WASM")
+    target_link_libraries(binaryen_wasm_standalone "-sWASM=1")
+    # Export all C API functions
+    target_link_libraries(binaryen_wasm_standalone "-sEXPORTED_FUNCTIONS=_malloc,_free")
+    target_link_libraries(binaryen_wasm_standalone "-sEXPORT_ALL=1")
+    # Memory configuration
+    target_link_libraries(binaryen_wasm_standalone "-sALLOW_MEMORY_GROWTH=1")
+    target_link_libraries(binaryen_wasm_standalone "-sINITIAL_MEMORY=67108864")  # 64MB
+    target_link_libraries(binaryen_wasm_standalone "-sMAXIMUM_MEMORY=536870912") # 512MB
+    target_link_libraries(binaryen_wasm_standalone "-sSTACK_SIZE=1048576")       # 1MB stack
+    # WASM features
+    target_link_libraries(binaryen_wasm_standalone "-msign-ext")
+    target_link_libraries(binaryen_wasm_standalone "-mbulk-memory")
+    target_link_libraries(binaryen_wasm_standalone "-mmutable-globals")
+    # No filesystem (pure computation)
+    target_link_libraries(binaryen_wasm_standalone "-sFILESYSTEM=0")
+    # Optimization
+    target_link_libraries(binaryen_wasm_standalone optimized "-flto")
+    target_link_libraries(binaryen_wasm_standalone optimized "-O3")
+    target_link_libraries(binaryen_wasm_standalone debug "--profiling")
+    # Output as .wasm only (no .js)
+    set_target_properties(binaryen_wasm_standalone PROPERTIES
+      SUFFIX ".wasm"
+      OUTPUT_NAME "binaryen")
+    install(TARGETS binaryen_wasm_standalone DESTINATION ${CMAKE_INSTALL_LIBDIR})
+    message(STATUS "Building standalone WASM module (binaryen.wasm)")
+  endif()
 endif()
 
 configure_file(scripts/binaryen-lit.in ${CMAKE_BINARY_DIR}/bin/binaryen-lit @ONLY)
