@@ -666,6 +666,12 @@ if(EMSCRIPTEN)
     install(TARGETS binaryen_wasm_standalone DESTINATION ${CMAKE_INSTALL_LIBDIR})
     message(STATUS "Building standalone WASM module (binaryen.wasm)")
   endif()
+else()
+  # Warn if BUILD_STANDALONE_WASM is set but Emscripten is not being used
+  if(BUILD_STANDALONE_WASM)
+    message(WARNING "BUILD_STANDALONE_WASM=ON requires Emscripten toolchain. "
+                    "Use: emcmake cmake -DBUILD_STANDALONE_WASM=ON ..")
+  endif()
 endif()
 
 configure_file(scripts/binaryen-lit.in ${CMAKE_BINARY_DIR}/bin/binaryen-lit @ONLY)
