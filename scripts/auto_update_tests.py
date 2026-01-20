@@ -55,6 +55,11 @@ def update_example_tests():
             print('link: ', ' '.join(cmd))
             subprocess.check_call(cmd)
             print('run...', output_file)
+            # Validate the compiled executable exists and is within the bin directory
+            if not os.path.isfile(output_file) or not os.access(output_file, os.X_OK):
+                raise RuntimeError(f'Compiled executable not found or not executable: {output_file}')
+            if not os.path.realpath(output_file).startswith(os.path.realpath(shared.options.binaryen_bin)):
+                raise RuntimeError(f'Executable outside expected directory: {output_file}')
             proc = subprocess.run([output_file], capture_output=True)
             assert proc.returncode == 0, [proc.returncode, proc.stderror, proc.stdout]
             actual = proc.stdout

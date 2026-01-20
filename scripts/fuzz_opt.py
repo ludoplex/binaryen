@@ -97,13 +97,24 @@ def make_random_input(input_size, raw_input_data):
         f.write(bytes([random.randint(0, 255) for x in range(input_size)]))
 
 
+def _validate_cmd_executable(cmd):
+    """Validate that the command executable exists and is accessible."""
+    if not cmd:
+        raise RuntimeError('Empty command')
+    executable = cmd[0]
+    if not os.path.isfile(executable) or not os.access(executable, os.X_OK):
+        raise RuntimeError(f'Executable not found or not accessible: {executable}')
+
+
 def run(cmd, stderr=None, silent=False):
+    _validate_cmd_executable(cmd)
     if not silent:
         print(' '.join(cmd))
     return subprocess.check_output(cmd, stderr=stderr, text=True)
 
 
 def run_unchecked(cmd):
+    _validate_cmd_executable(cmd)
     print(' '.join(cmd))
     return subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True).stdout
 

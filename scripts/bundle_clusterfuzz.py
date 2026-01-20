@@ -93,6 +93,11 @@ from test import fuzzing # noqa
 from test import shared # noqa
 from test import support # noqa
 
+# Validate wasm-opt executable exists and is accessible
+wasm_opt_path = shared.WASM_OPT[0] if shared.WASM_OPT else None
+if not wasm_opt_path or not os.path.isfile(wasm_opt_path) or not os.access(wasm_opt_path, os.X_OK):
+    raise RuntimeError(f'wasm-opt not found or not executable: {wasm_opt_path}')
+
 # Pick where to get the builds
 if build_dir:
     binaryen_bin = os.path.join(build_dir, 'bin')
