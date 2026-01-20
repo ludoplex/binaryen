@@ -37,7 +37,7 @@ set(CMAKE_CROSSCOMPILING TRUE)
 set(CMAKE_C_COMPILER "${COSMO_PATH}/bin/cosmocc")
 set(CMAKE_CXX_COMPILER "${COSMO_PATH}/bin/cosmoc++")
 set(CMAKE_AR "${COSMO_PATH}/bin/cosmoar")
-set(CMAKE_RANLIB "${COSMO_PATH}/bin/cosmoar" s)
+set(CMAKE_RANLIB "${COSMO_PATH}/bin/cosmoar")
 
 # Don't try to test compilers (cross-compiling)
 set(CMAKE_C_COMPILER_WORKS TRUE)

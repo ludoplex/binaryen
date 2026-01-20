@@ -81,8 +81,16 @@ build() {
         -DENABLE_WERROR=OFF \
         -DCOSMO_PATH="${COSMO_PATH}"
 
-    # Build
-    cmake --build . --parallel "$(nproc)"
+    # Build (with portable CPU count detection)
+    local num_cpus
+    if command -v nproc &> /dev/null; then
+        num_cpus=$(nproc)
+    elif command -v sysctl &> /dev/null && sysctl -n hw.ncpu &> /dev/null; then
+        num_cpus=$(sysctl -n hw.ncpu)
+    else
+        num_cpus=4  # fallback default
+    fi
+    cmake --build . --parallel "${num_cpus}"
 
     # List built executables
     info "Built executables:"

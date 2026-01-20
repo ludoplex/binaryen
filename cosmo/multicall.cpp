@@ -21,43 +21,20 @@
 #include <string>
 #include <iostream>
 
-// Forward declarations for tool main functions
-// These are defined in their respective source files
-namespace wasm_opt {
-    int main(int argc, char* argv[]);
-}
-namespace wasm_as {
-    int main(int argc, char* argv[]);
-}
-namespace wasm_dis {
-    int main(int argc, char* argv[]);
-}
-namespace wasm_merge {
-    int main(int argc, char* argv[]);
-}
-namespace wasm_metadce {
-    int main(int argc, char* argv[]);
-}
-namespace wasm_ctor_eval {
-    int main(int argc, char* argv[]);
-}
-namespace wasm2js {
-    int main(int argc, char* argv[]);
-}
-
 // External main functions (actual tool entry points)
-extern int wasm_opt_main(int argc, char* argv[]);
-extern int wasm_as_main(int argc, char* argv[]);
-extern int wasm_dis_main(int argc, char* argv[]);
-extern int wasm_merge_main(int argc, char* argv[]);
-extern int wasm_metadce_main(int argc, char* argv[]);
-extern int wasm_ctor_eval_main(int argc, char* argv[]);
-extern int wasm2js_main(int argc, char* argv[]);
+// Note: Binaryen tools use "const char* argv[]" signature
+extern int wasm_opt_main(int argc, const char* argv[]);
+extern int wasm_as_main(int argc, const char* argv[]);
+extern int wasm_dis_main(int argc, const char* argv[]);
+extern int wasm_merge_main(int argc, const char* argv[]);
+extern int wasm_metadce_main(int argc, const char* argv[]);
+extern int wasm_ctor_eval_main(int argc, const char* argv[]);
+extern int wasm2js_main(int argc, const char* argv[]);
 
 struct Tool {
     const char* name;
     const char* aliases[4];
-    int (*main_func)(int, char**);
+    int (*main_func)(int, const char**);
     const char* description;
 };
 
@@ -135,7 +112,7 @@ static void print_usage() {
     std::cerr << "  binaryen.com --tool=wasm-opt --help\n";
 }
 
-int main(int argc, char* argv[]) {
+int main(int argc, const char* argv[]) {
     if (argc < 1) {
         print_usage();
         return 1;
@@ -155,7 +132,7 @@ int main(int argc, char* argv[]) {
             tool = find_tool(argv[i] + 7);
             if (tool) {
                 // Remove --tool= from arguments
-                char** new_argv = new char*[argc];
+                const char** new_argv = new const char*[argc];
                 new_argv[0] = argv[0];
                 int new_argc = 1;
                 for (int j = 1; j < argc; j++) {

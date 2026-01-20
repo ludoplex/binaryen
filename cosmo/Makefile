@@ -17,6 +17,9 @@ COSMO_PATH ?= /opt/cosmo
 PREFIX ?= /usr/local
 BUILD_DIR ?= build/cosmo
 
+# Version - extract from CMakeLists.txt or use override
+VERSION ?= $(shell grep -oP 'project\(binaryen.*VERSION\s+\K[0-9]+' ../CMakeLists.txt 2>/dev/null || echo "125")
+
 # Compilers
 CC = $(COSMO_PATH)/bin/cosmocc
 CXX = $(COSMO_PATH)/bin/cosmoc++
@@ -115,7 +118,7 @@ $(BUILD_DIR)/config.h:
 	@echo "// Auto-generated config.h for Cosmopolitan build" > $@
 	@echo "#ifndef BINARYEN_CONFIG_H" >> $@
 	@echo "#define BINARYEN_CONFIG_H" >> $@
-	@echo "#define PROJECT_VERSION \"114\"" >> $@
+	@echo "#define PROJECT_VERSION \"$(VERSION)\"" >> $@
 	@echo "#endif" >> $@
 
 # Compile C++ sources
