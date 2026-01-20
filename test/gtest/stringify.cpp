@@ -1,255 +1,736 @@
-#include "ir/utils.h"
+/*
+ * Copyright 2025 WebAssembly Community Group participants
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+#include <variant>
+
 #include "passes/stringify-walker.h"
-#include "print-test.h"
-#include "support/suffix_tree.h"
+#include "wasm-type.h"
+#include "wasm.h"
+#include "gtest/gtest.h"
 
 using namespace wasm;
 
-using StringifyTest = PrintTest;
+struct FuncStart {
+  Function* func;
+  bool operator==(const FuncStart& other) const { return func == other.func; }
+};
 
-TEST_F(StringifyTest, Print) {
-  auto moduleText = R"wasm(
-    (module
-    (tag $catch_a (param i32))
-    (tag $catch_b (param i32))
-    (tag $catch_c (param i32))
-    (func $d
-      (block $block_a
-        (drop (i32.const 20))
-        (drop (i32.const 10))
-      )
-      (block $block_b
-        (drop (if (i32.const 0)
-          (i32.const 40)
-          (i32.const 5)
-        ))
-      )
-      (block $block_c
-        (drop (if (i32.const 1)
-          (i32.const 30)
-        ))
-      )
-      (block $block_d
-        (try $try_a
-          (do
-            (nop)
-          )
-          (catch $catch_a
-            (drop (i32.const 8))
-          )
-          (catch $catch_b
-            (drop (i32.const 15))
-          )
-        )
-      )
-      (block $block_e
-        (try $try_b
-          (do
-            (nop)
-          )
-          (catch $catch_c
-            (drop (i32.const 33))
-          )
-        )
-      )
-    )
-   )
-  )wasm";
+struct BlockStart {
+  Block* block;
+  bool operator==(const BlockStart& other) const {
+    return block == other.block;
+  }
+};
 
-  auto stringifyText = R"stringify(in visitExpression for block
-adding unique symbol
-in visitExpression for block $block_a
-in visitExpression for block $block_b
-in visitExpression for block $block_c
-in visitExpression for block $block_d
-in visitExpression for block $block_e
-adding unique symbol
-in visitExpression for i32.const 20
-in visitExpression for drop
-in visitExpression for i32.const 10
-in visitExpression for drop
-adding unique symbol
-in visitExpression for i32.const 0
-in visitExpression for if
-in visitExpression for drop
-adding unique symbol
-in visitExpression for i32.const 1
-in visitExpression for if
-in visitExpression for drop
-adding unique symbol
-in visitExpression for try $try_a
-adding unique symbol
-in visitExpression for try $try_b
-adding unique symbol
-in visitExpression for i32.const 40
-adding unique symbol
-in visitExpression for i32.const 5
-adding unique symbol
-in visitExpression for i32.const 30
-adding unique symbol
-in visitExpression for nop
-adding unique symbol
-in visitExpression for i32.const 8
-in visitExpression for drop
-adding unique symbol
-in visitExpression for i32.const 15
-in visitExpression for drop
-adding unique symbol
-in visitExpression for nop
-adding unique symbol
-in visitExpression for i32.const 33
-in visitExpression for drop
-adding unique symbol
-)stringify";
+struct IfStart {
+  If* iff;
+  bool operator==(const IfStart& other) const { return iff == other.iff; }
+};
 
-  struct TestStringifyWalker : public StringifyWalker<TestStringifyWalker> {
-    std::ostream& os;
+struct ElseStart {
+  bool operator==(const ElseStart&) const { return true; }
+};
 
-    TestStringifyWalker(std::ostream& os) : os(os){};
+struct LoopStart {
+  Loop* loop;
+  bool operator==(const LoopStart& other) const { return loop == other.loop; }
+};
 
-    void addUniqueSymbol() { os << "adding unique symbol\n"; }
+struct TryStart {
+  Try* tryy;
+  bool operator==(const TryStart& other) const { return tryy == other.tryy; }
+};
 
-    void visitExpression(Expression* curr) {
-      os << "in visitExpression for " << ShallowExpression{curr, getModule()}
-         << std::endl;
+struct CatchStart {
+  Name tag;
+  bool operator==(const CatchStart& other) const { return tag == other.tag; }
+};
+
+struct CatchAllStart {
+  bool operator==(const CatchAllStart&) const { return true; }
+};
+
+struct TryTableStart {
+  TryTable* tryt;
+  bool operator==(const TryTableStart& other) const {
+    return tryt == other.tryt;
+  }
+};
+
+struct End {
+  Expression* curr;
+  bool operator==(const End& other) const { return curr == other.curr; }
+};
+
+using Delimiter = std::variant<FuncStart,
+                               BlockStart,
+                               IfStart,
+                               ElseStart,
+                               LoopStart,
+                               TryStart,
+                               CatchStart,
+                               CatchAllStart,
+                               TryTableStart,
+                               End>;
+
+using Visited = std::variant<Expression*, Delimiter>;
+
+std::ostream& operator<<(std::ostream& o, const FuncStart& v) {
+  return o << "FuncStart(" << v.func->name << ")";
+}
+
+std::ostream& operator<<(std::ostream& o, const BlockStart& v) {
+  return o << "BlockStart(" << v.block->name << ")";
+}
+
+std::ostream& operator<<(std::ostream& o, const IfStart& v) {
+  return o << "IfStart(" << v.iff << ")";
+}
+
+std::ostream& operator<<(std::ostream& o, const ElseStart& v) {
+  return o << "ElseStart";
+}
+
+std::ostream& operator<<(std::ostream& o, const LoopStart& v) {
+  return o << "LoopStart(" << v.loop->name << ")";
+}
+
+std::ostream& operator<<(std::ostream& o, const TryStart& v) {
+  return o << "TryStart(" << v.tryy->name << ")";
+}
+
+std::ostream& operator<<(std::ostream& o, const CatchStart& v) {
+  return o << "CatchStart(" << v.tag << ")";
+}
+
+std::ostream& operator<<(std::ostream& o, const CatchAllStart& v) {
+  return o << "CatchAllStart";
+}
+
+std::ostream& operator<<(std::ostream& o, const TryTableStart& v) {
+  return o << "TryTableStart(" << v.tryt << ")";
+}
+
+std::ostream& operator<<(std::ostream& o, const End& v) {
+  return o << "End(" << v.curr << ")";
+}
+
+std::ostream& operator<<(std::ostream& o, const Visited& v) {
+  std::visit([&](auto&& arg) { o << arg; }, v);
+  return o;
+}
+
+struct TestStringifyWalker : StringifyWalker<TestStringifyWalker> {
+  using SeparatorReason = StringifyWalker<TestStringifyWalker>::SeparatorReason;
+
+  std::vector<Visited> visited;
+
+  void visitExpression(Expression* curr) { visited.push_back(curr); }
+
+  void addUniqueSymbol(SeparatorReason curr) {
+    if (auto* func = curr.getFuncStart()) {
+      visited.push_back(FuncStart{func->func});
+    } else if (auto* block = curr.getBlockStart()) {
+      visited.push_back(BlockStart{block->block});
+    } else if (auto* iff = curr.getIfStart()) {
+      visited.push_back(IfStart{iff->iff});
+    } else if (curr.getElseStart()) {
+      visited.push_back(ElseStart{});
+    } else if (auto* loop = curr.getLoopStart()) {
+      visited.push_back(LoopStart{loop->loop});
+    } else if (auto* tryy = curr.getTryStart()) {
+      visited.push_back(TryStart{tryy->tryy});
+    } else if (auto* tag = curr.getCatchStart()) {
+      visited.push_back(CatchStart{tag->tag});
+    } else if (curr.getCatchAllStart()) {
+      visited.push_back(CatchAllStart{});
+    } else if (auto* tryt = curr.getTryTableStart()) {
+      visited.push_back(TryTableStart{tryt->tryt});
+    } else if (auto* end = curr.getEnd()) {
+      visited.push_back(End{end->curr});
     }
-  };
+  }
+};
 
+TEST(StringifyWalkerTest, Nop) {
   Module wasm;
-  parseWast(wasm, moduleText);
+  Builder builder(wasm);
 
-  std::stringstream ss;
-  TestStringifyWalker stringify = TestStringifyWalker(ss);
-  stringify.walkModule(&wasm);
+  // (func $func nop)
+  auto* nop = builder.makeNop();
+  auto f = builder.makeFunction("func", Signature(), {}, nop);
+  auto* func = f.get();
 
-  EXPECT_EQ(ss.str(), stringifyText);
+  wasm.addFunction(std::move(f));
+  TestStringifyWalker walker;
+  walker.walkModule(&wasm);
+
+  std::vector<Visited> expected{
+    Visited(FuncStart{func}), Visited(nop), Visited(End{nullptr})};
+  EXPECT_EQ(walker.visited, expected);
 }
 
-static auto dupModuleText = R"wasm(
-    (module
-    (func $a
-      (block $block_a
-        (drop (i32.const 20))
-        (drop (i32.const 10))
-      )
-      (block $block_b
-        (drop (if (i32.const 0)
-          (i32.const 40)
-          (i32.const 5)
-        ))
-      )
-      (block $block_c
-        (drop (if (i32.const 1)
-          (i32.const 30)
-        ))
-      )
-      (block $block_d
-        (drop (i32.const 20))
-        (drop (i32.const 10))
-      )
-      (block $block_e
-        (drop (if (i32.const 1)
-          (i32.const 30)
-        ))
-      )
-      (block $block_f
-        (drop (if (i32.const 0)
-          (i32.const 30)
-        ))
-      )
-    )
-   )
-  )wasm";
-
-TEST_F(StringifyTest, Stringify) {
+TEST(StringifyWalkerTest, Add) {
   Module wasm;
-  parseWast(wasm, dupModuleText);
+  Builder builder(wasm);
 
-  HashStringifyWalker stringify = HashStringifyWalker();
-  stringify.walkModule(&wasm);
+  // (func $func
+  //   (i32.add
+  //     (i32.const 0)
+  //     (i32.const 1)
+  //   )
+  // )
+  auto* a = builder.makeConst(uint32_t(0));
+  auto* b = builder.makeConst(uint32_t(1));
+  auto* add = builder.makeBinary(AddInt32, a, b);
+  auto f = builder.makeFunction("func", Signature(), {}, add);
+  auto* func = f.get();
 
-  EXPECT_EQ(stringify.hashString,
-            (std::vector<uint32_t>{
-              0,             // function block evaluated as a whole
-              (uint32_t)-1,  // separate function block from function contents
-              1,             // block_a evaluated as a whole
-              2,             // block_b evaluated as a whole
-              3,             // block_c evaluated as a whole
-              1,             // block_d has the same contents as block_a
-              3,             // block_e has the same contents as block_c
-              4,             // block_f evaluated as a whole
-              (uint32_t)-2,  // separate blocks from block contents
-              5,             // i32.const 20
-              6,             // drop, all drops will be the same symbol
-              7,             // i32.const 10
-              6,             // drop
-              (uint32_t)-3,  // separate block_a contents
-              8,             // i32.const 0, if condition
-              9,             // block_b's if evaluated as a whole
-              6,             // drop
-              (uint32_t)-4,  // separate block_b contents
-              10,            // i32.const 1, if condition
-              11,            // block_c's if evaluated as a whole
-              6,             // drop
-              (uint32_t)-5,  // separate block_c contents
-              5,             // i32.const 20
-              6,             // drop
-              7,             // i32.const 10
-              6,             // drop
-              (uint32_t)-6,  // separate block_d contents
-              10,            // i32.const 1, if condition
-              11,            // block_e if evaluated as a whole
-              6,             // drop
-              (uint32_t)-7,  // separate block_e contents
-              8,             // i32.const 0, if condition
-              11,            // block_f's if evaluated as a whole
-              6,             // drop
-              (uint32_t)-8,  // separate block_f contents
-              12,            // i32.const 40
-              (uint32_t)-9,  // separate block_b if-true
-              13,            // i32.const 5
-              (uint32_t)-10, // separate block_b if-false
-              14,            // i32.const 30
-              (uint32_t)-11, // separate block_c if-true
-              14,            // i32.const 30
-              (uint32_t)-12, // separate block_e if-true
-              14,            // i32.const 30
-              (uint32_t)-13  // separate block_f if-true
-            }));
+  wasm.addFunction(std::move(f));
+  TestStringifyWalker walker;
+  walker.walkModule(&wasm);
+
+  std::vector<Visited> expected{Visited(FuncStart{func}),
+                                Visited(a),
+                                Visited(b),
+                                Visited(add),
+                                Visited(End{nullptr})};
+  EXPECT_EQ(walker.visited, expected);
 }
 
-TEST_F(StringifyTest, Substrings) {
+TEST(StringifyWalkerTest, EmptyBlock) {
   Module wasm;
-  parseWast(wasm, dupModuleText);
+  Builder builder(wasm);
 
-  HashStringifyWalker stringify = HashStringifyWalker();
-  stringify.walkModule(&wasm);
+  // (func $func
+  //   (block)
+  // )
+  auto* block = builder.makeBlock();
+  auto f = builder.makeFunction("func", Signature(), {}, block);
+  auto* func = f.get();
 
-  SuffixTree st(stringify.hashString);
-  std::vector<SuffixTree::RepeatedSubstring> substrings(st.begin(), st.end());
-  std::sort(
-    substrings.begin(),
-    substrings.end(),
-    [](SuffixTree::RepeatedSubstring a, SuffixTree::RepeatedSubstring b) {
-      size_t aWeight = a.Length * a.StartIndices.size();
-      size_t bWeight = b.Length * b.StartIndices.size();
-      if (aWeight == bWeight) {
-        return a.StartIndices[0] < b.StartIndices[0];
-      }
-      return aWeight > bWeight;
-    });
+  wasm.addFunction(std::move(f));
+  TestStringifyWalker walker;
+  walker.walkModule(&wasm);
 
-  EXPECT_EQ(
-    substrings,
-    (std::vector<SuffixTree::RepeatedSubstring>{
-      // 5, 6, 7, 6 appears at idx 9 and again at 22
-      SuffixTree::RepeatedSubstring{4u, (std::vector<unsigned>{9, 22})},
-      // 6, 7, 6 appears at idx 10 and again at 23
-      SuffixTree::RepeatedSubstring{3u, (std::vector<unsigned>{10, 23})},
-      // 10, 11, 6 appears at idx 18 and again at 27
-      SuffixTree::RepeatedSubstring{3u, (std::vector<unsigned>{18, 27})},
-      // 11, 6 appears at idx 32, 19 and again at 28
-      SuffixTree::RepeatedSubstring{2u, (std::vector<unsigned>{32, 19, 28})},
-      // 7, 6 appears at idx 11 and again at 24
-      SuffixTree::RepeatedSubstring{2u, (std::vector<unsigned>{11, 24})}}));
+  std::vector<Visited> expected{Visited(FuncStart{func}),
+                                Visited(block),
+                                Visited(End{nullptr}),
+                                Visited(BlockStart{block}),
+                                Visited(End{nullptr})};
+  EXPECT_EQ(walker.visited, expected);
+}
+
+TEST(StringifyWalkerTest, SingletonBlock) {
+  Module wasm;
+  Builder builder(wasm);
+
+  // (func $func
+  //   (block
+  //     (nop)
+  //   )
+  // )
+  auto* nop = builder.makeNop();
+  auto* block = builder.makeBlock({nop});
+  auto f = builder.makeFunction("func", Signature(), {}, block);
+  auto* func = f.get();
+
+  wasm.addFunction(std::move(f));
+  TestStringifyWalker walker;
+  walker.walkModule(&wasm);
+
+  std::vector<Visited> expected{Visited(FuncStart{func}),
+                                Visited(block),
+                                Visited(End{nullptr}),
+                                Visited(BlockStart{block}),
+                                Visited(nop),
+                                Visited(End{nullptr})};
+  EXPECT_EQ(walker.visited, expected);
+}
+
+TEST(StringifyWalkerTest, Block) {
+  Module wasm;
+  Builder builder(wasm);
+
+  // (func $func
+  //   (block
+  //     (nop)
+  //     (nop)
+  //     (nop)
+  //   )
+  // )
+  auto* nop1 = builder.makeNop();
+  auto* nop2 = builder.makeNop();
+  auto* nop3 = builder.makeNop();
+  auto* block = builder.makeBlock({nop1, nop2, nop3});
+  auto f = builder.makeFunction("func", Signature(), {}, block);
+  auto* func = f.get();
+
+  wasm.addFunction(std::move(f));
+  TestStringifyWalker walker;
+  walker.walkModule(&wasm);
+
+  std::vector<Visited> expected{Visited(FuncStart{func}),
+                                Visited(block),
+                                Visited(End{nullptr}),
+                                Visited(BlockStart{block}),
+                                Visited(nop1),
+                                Visited(nop2),
+                                Visited(nop3),
+                                Visited(End{nullptr})};
+  EXPECT_EQ(walker.visited, expected);
+}
+
+TEST(StringifyWalkerTest, NestedBlocks) {
+  Module wasm;
+  Builder builder(wasm);
+
+  // (func $func
+  //   (block $a
+  //     (block $b
+  //       (block $c
+  //         (nop)
+  //       )
+  //     )
+  //   )
+  // )
+  auto* nop = builder.makeNop();
+  auto* c = builder.makeBlock({nop});
+  auto* b = builder.makeBlock({c});
+  auto* a = builder.makeBlock({b});
+  auto f = builder.makeFunction("func", Signature(), {}, a);
+  auto* func = f.get();
+
+  wasm.addFunction(std::move(f));
+  TestStringifyWalker walker;
+  walker.walkModule(&wasm);
+
+  std::vector<Visited> expected{Visited(FuncStart{func}),
+                                Visited(a),
+                                Visited(End{nullptr}),
+                                Visited(BlockStart{a}),
+                                Visited(b),
+                                Visited(End{nullptr}),
+                                Visited(BlockStart{b}),
+                                Visited(c),
+                                Visited(End{nullptr}),
+                                Visited(BlockStart{c}),
+                                Visited(nop),
+                                Visited(End{nullptr})};
+  EXPECT_EQ(walker.visited, expected);
+}
+
+TEST(StringifyWalkerTest, MixedBlock) {
+  Module wasm;
+  Builder builder(wasm);
+
+  // (func $func
+  //   (block $a
+  //     (block $b)
+  //     (nop)
+  //     (block $c)
+  //   )
+  // )
+  auto* nop = builder.makeNop();
+  auto* b = builder.makeBlock();
+  auto* c = builder.makeBlock();
+  auto* a = builder.makeBlock({b, nop, c});
+  auto f = builder.makeFunction("func", Signature(), {}, a);
+  auto* func = f.get();
+
+  wasm.addFunction(std::move(f));
+  TestStringifyWalker walker;
+  walker.walkModule(&wasm);
+
+  std::vector<Visited> expected{Visited{FuncStart{func}},
+                                Visited(a),
+                                Visited(End{nullptr}),
+                                Visited(BlockStart{a}),
+                                Visited(b),
+                                Visited(nop),
+                                Visited(c),
+                                Visited(End{nullptr}),
+                                Visited(BlockStart{b}),
+                                Visited(End{nullptr}),
+                                Visited(BlockStart{c}),
+                                Visited(End{nullptr})};
+  EXPECT_EQ(walker.visited, expected);
+}
+
+TEST(StringifyWalkerTest, AddBlocks) {
+  Module wasm;
+  Builder builder(wasm);
+
+  // (func $func
+  //   (i32.add
+  //     (block (i32.const 0))
+  //     (block (i32.const 1))
+  //   )
+  // )
+  auto* c0 = builder.makeConst(uint32_t(0));
+  auto* c1 = builder.makeConst(uint32_t(1));
+  auto* lhs = builder.makeBlock({c0});
+  auto* rhs = builder.makeBlock({c1});
+  auto* add = builder.makeBinary(AddInt32, lhs, rhs);
+  auto f = builder.makeFunction("func", Signature(), {}, add);
+  auto* func = f.get();
+
+  wasm.addFunction(std::move(f));
+  TestStringifyWalker walker;
+  walker.walkModule(&wasm);
+
+  std::vector<Visited> expected{Visited(FuncStart{func}),
+                                Visited(lhs),
+                                Visited(rhs),
+                                Visited(add),
+                                Visited(End{nullptr}),
+                                Visited(BlockStart{lhs}),
+                                Visited(c0),
+                                Visited(End{nullptr}),
+                                Visited(BlockStart{rhs}),
+                                Visited(c1),
+                                Visited(End{nullptr})};
+  EXPECT_EQ(walker.visited, expected);
+}
+
+TEST(StringifyWalkerTest, IfElse) {
+  Module wasm;
+  Builder builder(wasm);
+
+  // (func $func
+  //   (if
+  //     (i32.const 1)
+  //     (then (nop))
+  //     (else (nop))
+  //   )
+  // )
+  auto* cond = builder.makeConst(uint32_t(1));
+  auto* ifTrue = builder.makeNop();
+  auto* ifFalse = builder.makeNop();
+  auto* iff = builder.makeIf(cond, ifTrue, ifFalse);
+  auto f = builder.makeFunction("func", Signature(), {}, iff);
+  auto* func = f.get();
+
+  wasm.addFunction(std::move(f));
+  TestStringifyWalker walker;
+  walker.walkModule(&wasm);
+
+  std::vector<Visited> expected{Visited(FuncStart{func}),
+                                Visited(cond),
+                                Visited(iff),
+                                Visited(End{nullptr}),
+                                Visited(IfStart{iff}),
+                                Visited(ifTrue),
+                                Visited(ElseStart{}),
+                                Visited(ifFalse),
+                                Visited(End{nullptr})};
+  EXPECT_EQ(walker.visited, expected);
+}
+
+TEST(StringifyWalkerTest, If) {
+  Module wasm;
+  Builder builder(wasm);
+
+  // (func $func
+  //   (if
+  //     (i32.const 1)
+  //     (then (nop))
+  //   )
+  // )
+  auto* cond = builder.makeConst(uint32_t(1));
+  auto* ifTrue = builder.makeNop();
+  auto* iff = builder.makeIf(cond, ifTrue);
+  auto f = builder.makeFunction("func", Signature(), {}, iff);
+  auto* func = f.get();
+
+  wasm.addFunction(std::move(f));
+  TestStringifyWalker walker;
+  walker.walkModule(&wasm);
+
+  std::vector<Visited> expected{Visited(FuncStart{func}),
+                                Visited(cond),
+                                Visited(iff),
+                                Visited(End{nullptr}),
+                                Visited(IfStart{iff}),
+                                Visited(ifTrue),
+                                Visited(End{nullptr})};
+  EXPECT_EQ(walker.visited, expected);
+}
+
+TEST(StringifyWalkerTest, IfNestedCondition) {
+  Module wasm;
+  Builder builder(wasm);
+
+  // (func $func
+  //   (if
+  //     (if
+  //       (i32.const 1)
+  //       (then (i32.const 2))
+  //       (else (i32.const 3))
+  //     )
+  //     (then (nop))
+  //     (else (nop))
+  //   )
+  // )
+  auto* c1 = builder.makeConst(uint32_t(1));
+  auto* c2 = builder.makeConst(uint32_t(2));
+  auto* c3 = builder.makeConst(uint32_t(3));
+
+  auto* cond = builder.makeIf(c1, c2, c3);
+  auto* ifTrue = builder.makeNop();
+  auto* ifFalse = builder.makeNop();
+  auto* iff = builder.makeIf(cond, ifTrue, ifFalse);
+  auto f = builder.makeFunction("func", Signature(), {}, iff);
+  auto* func = f.get();
+
+  wasm.addFunction(std::move(f));
+  TestStringifyWalker walker;
+  walker.walkModule(&wasm);
+
+  std::vector<Visited> expected{Visited(FuncStart{func}),
+                                Visited(c1),
+                                Visited(cond),
+                                Visited(iff),
+                                Visited(End{nullptr}),
+                                Visited(IfStart{cond}),
+                                Visited(c2),
+                                Visited(ElseStart{}),
+                                Visited(c3),
+                                Visited(End{nullptr}),
+                                Visited(IfStart{iff}),
+                                Visited(ifTrue),
+                                Visited(ElseStart{}),
+                                Visited(ifFalse),
+                                Visited(End{nullptr})};
+  EXPECT_EQ(walker.visited, expected);
+}
+
+TEST(StringifyWalkerTest, Loop) {
+  Module wasm;
+  Builder builder(wasm);
+
+  // (func $func (loop (nop)))
+  auto* nop = builder.makeNop();
+  auto* loop = builder.makeLoop("loop", nop);
+  auto f = builder.makeFunction("func", Signature(), {}, loop);
+  auto* func = f.get();
+
+  wasm.addFunction(std::move(f));
+  TestStringifyWalker walker;
+  walker.walkModule(&wasm);
+
+  std::vector<Visited> expected{Visited(FuncStart{func}),
+                                Visited(loop),
+                                Visited(End{nullptr}),
+                                Visited(LoopStart{loop}),
+                                Visited(nop),
+                                Visited(End{nullptr})};
+  EXPECT_EQ(walker.visited, expected);
+}
+
+TEST(StringifyWalkerTest, Try) {
+  Module wasm;
+  Builder builder(wasm);
+
+  // (func $func
+  //   (try
+  //     (do (nop))
+  //   )
+  // )
+  auto* nop = builder.makeNop();
+  std::vector<Name> tags;
+  std::vector<Expression*> bodies;
+  auto* tryy = builder.makeTry(nop, tags, bodies);
+  auto f = builder.makeFunction("func", Signature(), {}, tryy);
+  auto* func = f.get();
+
+  wasm.addFunction(std::move(f));
+  TestStringifyWalker walker;
+  walker.walkModule(&wasm);
+
+  std::vector<Visited> expected{Visited(FuncStart{func}),
+                                Visited(tryy),
+                                Visited(End{nullptr}),
+                                Visited(TryStart{tryy}),
+                                Visited(nop),
+                                Visited(End{nullptr})};
+  EXPECT_EQ(walker.visited, expected);
+}
+
+TEST(StringifyWalkerTest, TryCatch) {
+  Module wasm;
+  Builder builder(wasm);
+
+  // (func $func
+  //   (try
+  //     (do (nop))
+  //     (catch $e (nop))
+  //   )
+  // )
+  auto* nop = builder.makeNop();
+  auto* body = builder.makeNop();
+  std::vector<Name> tags{"e"};
+  std::vector<Expression*> bodies{body};
+  auto* tryy = builder.makeTry(nop, tags, bodies);
+  auto f = builder.makeFunction("func", Signature(), {}, tryy);
+  auto* func = f.get();
+
+  wasm.addFunction(std::move(f));
+  TestStringifyWalker walker;
+  walker.walkModule(&wasm);
+
+  std::vector<Visited> expected{Visited(FuncStart{func}),
+                                Visited(tryy),
+                                Visited(End{nullptr}),
+                                Visited(TryStart{tryy}),
+                                Visited(nop),
+                                Visited(CatchStart{"e"}),
+                                Visited(body),
+                                Visited(End{nullptr})};
+  EXPECT_EQ(walker.visited, expected);
+}
+
+TEST(StringifyWalkerTest, TryCatchAll) {
+  Module wasm;
+  Builder builder(wasm);
+
+  // (func $func
+  //   (try
+  //     (do (nop))
+  //     (catch_all (nop))
+  //   )
+  // )
+  auto* nop = builder.makeNop();
+  auto* body = builder.makeNop();
+  std::vector<Name> tags;
+  std::vector<Expression*> bodies{body};
+  auto* tryy = builder.makeTry(nop, tags, bodies);
+  auto f = builder.makeFunction("func", Signature(), {}, tryy);
+  auto* func = f.get();
+
+  wasm.addFunction(std::move(f));
+  TestStringifyWalker walker;
+  walker.walkModule(&wasm);
+
+  std::vector<Visited> expected{Visited(FuncStart{func}),
+                                Visited(tryy),
+                                Visited(End{nullptr}),
+                                Visited(TryStart{tryy}),
+                                Visited(nop),
+                                Visited(CatchAllStart{}),
+                                Visited(body),
+                                Visited(End{nullptr})};
+  EXPECT_EQ(walker.visited, expected);
+}
+
+TEST(StringifyWalkerTest, TryMultipleCatch) {
+  Module wasm;
+  Builder builder(wasm);
+
+  // (func $func
+  //   (try
+  //     (do (nop))
+  //     (catch $e1 (nop))
+  //     (catch $e2 (nop))
+  //     (catch_all (nop))
+  //   )
+  // )
+  auto* nop = builder.makeNop();
+  auto* body1 = builder.makeNop();
+  auto* body2 = builder.makeNop();
+  auto* body3 = builder.makeNop();
+  std::vector<Name> tags{"e1", "e2"};
+  std::vector<Expression*> bodies{body1, body2, body3};
+  auto* tryy = builder.makeTry(nop, tags, bodies);
+  auto f = builder.makeFunction("func", Signature(), {}, tryy);
+  auto* func = f.get();
+
+  wasm.addFunction(std::move(f));
+  TestStringifyWalker walker;
+  walker.walkModule(&wasm);
+
+  std::vector<Visited> expected{Visited(FuncStart{func}),
+                                Visited(tryy),
+                                Visited(End{nullptr}),
+                                Visited(TryStart{tryy}),
+                                Visited(nop),
+                                Visited(CatchStart{"e1"}),
+                                Visited(body1),
+                                Visited(CatchStart{"e2"}),
+                                Visited(body2),
+                                Visited(CatchAllStart{}),
+                                Visited(body3),
+                                Visited(End{nullptr})};
+  EXPECT_EQ(walker.visited, expected);
+}
+
+// TEST(StringifyWalkerTest, TryDelegate) {
+//   Module wasm;
+//   Builder builder(wasm);
+
+//   // (func $func
+//   //   (try
+//   //     (do (nop))
+//   //     (delegate 0)
+//   //   )
+//   // )
+//   auto* nop = builder.makeNop();
+//   auto* tryy = builder.makeTry(nop, DELEGATE_CALLER_TARGET);
+//   auto f = builder.makeFunction("func", Signature(), {}, tryy);
+//   auto* func = f.get();
+
+//   wasm.addFunction(std::move(f));
+//   TestStringifyWalker walker;
+//   walker.walkModule(&wasm);
+
+//   std::vector<Visited> expected{Visited(FuncStart{func}),
+//                                 Visited(tryy),
+//                                 Visited(End{nullptr}),
+//                                 Visited(TryStart{tryy}),
+//                                 Visited(nop),
+//                                 Visited(Delegate{})};
+//   EXPECT_EQ(walker.visited, expected);
+// }
+
+TEST(StringifyWalkerTest, TryTable) {
+  Module wasm;
+  Builder builder(wasm);
+
+  // (func $func
+  //   (try_table
+  //     (nop)
+  //   )
+  // )
+  auto* nop = builder.makeNop();
+  std::vector<Name> tags;
+  std::vector<Name> labels;
+  std::vector<bool> refs;
+  auto* tryy = builder.makeTryTable(nop, tags, labels, refs);
+  auto f = builder.makeFunction("func", Signature(), {}, tryy);
+  auto* func = f.get();
+
+  wasm.addFunction(std::move(f));
+  TestStringifyWalker walker;
+  walker.walkModule(&wasm);
+
+  std::vector<Visited> expected{Visited(FuncStart{func}),
+                                Visited(tryy),
+                                Visited(End{nullptr}),
+                                Visited(TryTableStart{tryy}),
+                                Visited(nop),
+                                Visited(End{nullptr})};
+  EXPECT_EQ(walker.visited, expected);
 }

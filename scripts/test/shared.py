@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from __future__ import print_function
 
 import argparse
 import difflib
@@ -20,8 +19,10 @@ import fnmatch
 import glob
 import os
 import shutil
+import stat
 import subprocess
 import sys
+from pathlib import Path
 
 # The C++ standard whose features are required to build Binaryen.
 # Keep in sync with CMakeLists.txt CXX_STANDARD
@@ -39,15 +40,10 @@ def parse_args(args):
         '--no-torture', dest='torture', action='store_false',
         help='Disables running the torture testcases.')
     parser.add_argument(
-        '--abort-on-first-failure', dest='abort_on_first_failure',
-        action='store_true', default=True,
+        '--abort-on-first-failure', '--fail-fast', dest='abort_on_first_failure',
+        action=argparse.BooleanOptionalAction, default=True,
         help=('Specifies whether to halt test suite execution on first test error.'
               ' Default: true.'))
-    parser.add_argument(
-        '--no-abort-on-first-failure', dest='abort_on_first_failure',
-        action='store_false',
-        help=('If set, the whole test suite will run to completion independent of'
-              ' earlier errors.'))
     parser.add_argument(
         '--binaryen-bin', dest='binaryen_bin', default='',
         help=('Specifies the path to the Binaryen executables in the CMake build'
@@ -79,7 +75,7 @@ def parse_args(args):
         help=('If specified, all unfreed (but still referenced) pointers at the'
               ' end of execution are considered memory leaks. Default: disabled.'))
     parser.add_argument(
-        '--spec-test', action='append', nargs='*', default=[], dest='spec_tests',
+        '--spec-test', action='append', default=[], dest='spec_tests',
         help='Names specific spec tests to run.')
     parser.add_argument(
         'positional_args', metavar='TEST_SUITE', nargs='*',
@@ -96,8 +92,8 @@ def parse_args(args):
     # TODO Allow each script to inherit the default set of options and add its
     # own custom options on top of that
     parser.add_argument(
-        '--auto-initial-contents', dest='auto_initial_contents',
-        action='store_true', default=False,
+        '--no-auto-initial-contents', dest='auto_initial_contents',
+        action='store_false', default=True,
         help='Select important initial contents automaticaly in fuzzer. '
              'Default: disabled.')
 
@@ -113,7 +109,6 @@ warnings = []
 
 
 def warn(text):
-    global warnings
     warnings.append(text)
     print('warning:', text, file=sys.stderr)
 
@@ -159,7 +154,6 @@ if not options.out_dir:
 
 if not os.path.exists(options.out_dir):
     os.makedirs(options.out_dir)
-os.chdir(options.out_dir)
 
 
 # Finds the given executable 'program' in PATH.
@@ -176,7 +170,7 @@ def which(program):
             # Prefer tools installed using third_party/setup.py
             os.path.join(options.binaryen_root, 'third_party', 'mozjs'),
             os.path.join(options.binaryen_root, 'third_party', 'v8'),
-            os.path.join(options.binaryen_root, 'third_party', 'wabt', 'bin')
+            os.path.join(options.binaryen_root, 'third_party', 'wabt', 'bin'),
         ] + os.environ['PATH'].split(os.pathsep)
         for path in paths:
             path = path.strip('"')
@@ -192,17 +186,14 @@ def which(program):
                     return exe_file + '.bat'
 
 
-WATERFALL_BUILD_DIR = os.path.join(options.binaryen_test, 'wasm-install')
-BIN_DIR = os.path.abspath(os.path.join(WATERFALL_BUILD_DIR, 'wasm-install', 'bin'))
-
 NATIVECC = (os.environ.get('CC') or which('mingw32-gcc') or
             which('gcc') or which('clang'))
 NATIVEXX = (os.environ.get('CXX') or which('mingw32-g++') or
             which('g++') or which('clang++'))
-NODEJS = os.getenv('NODE', which('node') or which('nodejs'))
+NODEJS = os.environ.get('NODE') or which('node') or which('nodejs')
 MOZJS = which('mozjs') or which('spidermonkey')
 
-V8 = which('v8') or which('d8')
+V8 = os.environ.get('V8') or which('v8') or which('d8')
 
 BINARYEN_INSTALL_DIR = os.path.dirname(options.binaryen_bin)
 WASM_OPT = [os.path.join(options.binaryen_bin, 'wasm-opt')]
@@ -259,20 +250,16 @@ def has_shell_timeout():
 V8_OPTS = [
     '--wasm-staging',
     '--experimental-wasm-compilation-hints',
-    '--experimental-wasm-gc',
-    '--experimental-wasm-typed-funcref',
-    '--experimental-wasm-memory64',
-    '--experimental-wasm-extended-const',
-    '--wasm-final-types',
+    '--experimental-wasm-stringref',
+    '--experimental-wasm-fp16',
+    '--experimental-wasm-custom-descriptors',
 ]
 
 # external tools
 
 try:
     if NODEJS is not None:
-        subprocess.check_call([NODEJS, '--version'],
-                              stdout=subprocess.PIPE,
-                              stderr=subprocess.PIPE)
+        subprocess.run([NODEJS, '--version'], check=True, capture_output=True)
 except (OSError, subprocess.CalledProcessError):
     NODEJS = None
 if NODEJS is None:
@@ -296,7 +283,6 @@ def delete_from_orbit(filename):
     if not os.path.exists(filename):
         return
     try:
-        import stat
         os.chmod(filename, os.stat(filename).st_mode | stat.S_IWRITE)
 
         def remove_readonly_and_try_again(func, path, exc_info):
@@ -304,29 +290,16 @@ def delete_from_orbit(filename):
                 os.chmod(path, os.stat(path).st_mode | stat.S_IWRITE)
                 func(path)
             else:
-                raise
+                raise exc_info[1]
         shutil.rmtree(filename, onerror=remove_readonly_and_try_again)
     except OSError:
         pass
 
 
-# This is a workaround for https://bugs.python.org/issue9400
-class Py2CalledProcessError(subprocess.CalledProcessError):
-    def __init__(self, returncode, cmd, output=None, stderr=None):
-        super(Exception, self).__init__(returncode, cmd, output, stderr)
-        self.returncode = returncode
-        self.cmd = cmd
-        self.output = output
-        self.stderr = stderr
-
-
-def run_process(cmd, check=True, input=None, capture_output=False, decode_output=True, *args, **kw):
-    if input and type(input) == str:
+def run_process(cmd, check=True, input=None, decode_output=True, *args, **kwargs):
+    if input and type(input) is str:
         input = bytes(input, 'utf-8')
-    if capture_output:
-        kw['stdout'] = subprocess.PIPE
-        kw['stderr'] = subprocess.PIPE
-    ret = subprocess.run(cmd, check=check, input=input, *args, **kw)
+    ret = subprocess.run(cmd, *args, check=check, input=input, **kwargs)
     if decode_output and ret.stdout is not None:
         ret.stdout = ret.stdout.decode('utf-8')
     if ret.stderr is not None:
@@ -350,7 +323,7 @@ def fail(actual, expected, fromfile='expected'):
         expected.split('\n'), actual.split('\n'),
         fromfile=fromfile, tofile='actual')
     diff_str = ''.join([a.rstrip() + '\n' for a in diff_lines])[:]
-    fail_with_error("incorrect output, diff:\n\n%s" % diff_str)
+    fail_with_error(f'incorrect output, diff:\n\n{diff_str}')
 
 
 def fail_if_not_identical(actual, expected, fromfile='expected'):
@@ -364,7 +337,7 @@ def fail_if_not_contained(actual, expected):
 
 
 def fail_if_not_identical_to_file(actual, expected_file):
-    binary = expected_file.endswith(".wasm") or type(actual) == bytes
+    binary = expected_file.endswith(".wasm") or type(actual) is bytes
     with open(expected_file, 'rb' if binary else 'r') as f:
         fail_if_not_identical(actual, f.read(), fromfile=expected_file)
 
@@ -386,13 +359,19 @@ def get_tests(test_dir, extensions=[], recursive=False):
         tests += glob.glob(os.path.join(test_dir, star + ext), recursive=True)
     if options.test_name_filter:
         tests = fnmatch.filter(tests, options.test_name_filter)
+    tests = [item for item in tests if os.path.isfile(item)]
     return sorted(tests)
 
 
-if not options.spec_tests:
-    options.spec_tests = get_tests(get_test_dir('spec'), ['.wast'])
+if options.spec_tests:
+    non_existent_tests = [test_name for test_name in options.spec_tests if not os.path.isfile(test_name)]
+    if non_existent_tests:
+        raise ValueError(f"Supplied test files do not exist: {non_existent_tests}")
+    options.spec_tests = [os.path.abspath(t) for t in options.spec_tests]
 else:
-    options.spec_tests = options.spec_tests[:]
+    options.spec_tests = get_tests(get_test_dir('spec'), ['.wast'], recursive=True)
+
+os.chdir(options.out_dir)
 
 # 11/27/2019: We updated the spec test suite to upstream spec repo. For some
 # files that started failing after this update, we added the new files to this
@@ -402,105 +381,148 @@ else:
 # corresponding 'old_[FILENAME].wast' file. When you fix the new file and
 # delete the old file, make sure you rename the corresponding .wast.log file in
 # expected-output/ if any.
+# Paths are relative to the test/spec directory
 SPEC_TESTS_TO_SKIP = [
-    # Stacky code / notation
-    'block.wast',
-    'call.wast',
-    'float_exprs.wast',
-    'globals.wast',
-    'loop.wast',
-    'nop.wast',
-    'select.wast',
-    'stack.wast',
-    'unwind.wast',
+    # Requires us to write our own floating point parser
+    'const.wast',
 
-    # Binary module
-    'binary.wast',
-    'binary-leb128.wast',
-    'custom.wast',
-
-    # Empty 'then' or 'else' in 'if'
-    'if.wast',
-    'local_set.wast',
-    'store.wast',
-
-    # No module in a file
-    'token.wast',
-    'utf8-custom-section-id.wast',
-    'utf8-import-field.wast',
-    'utf8-import-module.wast',
-    'utf8-invalid-encoding.wast',
-
-    # 'register' command
+    # Unlinkable module accepted
     'linking.wast',
 
-    # Misc. unsupported constructs
-    'call_indirect.wast',  # Empty (param) and (result)
-    'const.wast',  # Unparenthesized expression
-    'data.wast',  # Various unsupported (data) notations
-    'elem.wast',  # Unsupported 'offset' syntax in (elem)
-    'exports.wast',  # Multiple inlined exports for a function
-    'func.wast',  # Forward named type reference
-    'skip-stack-guard-page.wast',  # Hexadecimal style (0x..) in memory offset
+    # Invalid module accepted
+    'unreached-invalid.wast',
 
-    # Untriaged: We don't know the cause of the error yet
-    'address.wast',  # wasm2js 'assert_return' failure
-    'br_if.wast',  # Validation error
-    'float_literals.wast',  # 'assert_return' failure
-    'int_literals.wast',  # 'assert_return' failure
-    'local_tee.wast',  # Validation failure
-    'memory_grow.wast',  # 'assert_return' failure
-    'start.wast',  # Assertion failure
-    'type.wast',  # 'assertion_invalid' failure
-    'unreachable.wast',  # Validation failure
-    'unreached-invalid.wast'  # 'assert_invalid' failure
+    # Test invalid
+    'elem.wast',
 ]
-options.spec_tests = [t for t in options.spec_tests if os.path.basename(t) not
-                      in SPEC_TESTS_TO_SKIP]
+SPEC_TESTSUITE_PROPOSALS_TO_SKIP = [
+    'custom-page-sizes',
+    'wide-arithmetic',
+]
+
+# Paths are relative to the test/spec/testsuite directory
+SPEC_TESTSUITE_TESTS_TO_SKIP = [
+    'address.wast',  # 64-bit offset allowed by memory64
+    'array_new_elem.wast',  # Failure to parse element segment item abbreviation
+    'binary.wast',   # Missing data count section validation
+    'call_indirect64.wast',  # Failure to parse element segment abbreviation
+    'comments.wast',  # Issue with carriage returns being treated as newlines
+    'const.wast',    # Hex float constant not recognized as out of range
+    'conversions.wast',  # Promoted NaN should be canonical
+    'data.wast',    # Fail to parse data segment offset abbreviation
+    'elem.wast',    # Requires modeling empty declarative segments
+    'f32.wast',     # Adding -0 and -nan should give a canonical NaN
+    'f64.wast',     # Adding -0 and -nan should give a canonical NaN
+    'float_exprs.wast',  # Adding 0 and NaN should give canonical NaN
+    'float_misc.wast',   # Rounding wrong on f64.sqrt
+    'func.wast',    # Duplicate parameter names not properly rejected
+    'global.wast',  # Fail to parse table
+    'if.wast',      # Requires more precise unreachable validation
+    'imports.wast',  # Requires fixing handling of mutation to imported globals
+    'proposals/threads/imports.wast',  # Missing memory type validation on instantiation
+    'linking.wast',  # Missing function type validation on instantiation
+    'proposals/threads/memory.wast',  # Missing memory type validation on instantiation
+    'annotations.wast',  # String annotations IDs should be allowed
+    'id.wast',       # Empty IDs should be disallowed
+    # Requires correct handling of tag imports from different instances of the same module
+    # and splitting for module instances
+    'instance.wast',
+    'table64.wast',   # Requires validations for table size
+    'table_grow.wast',  # Incorrect table linking semantics in interpreter
+    'tag.wast',      # Non-empty tag results allowed by stack switching
+    'try_table.wast',  # Requires try_table interpretation
+    'local_init.wast',  # Requires local validation to respect unnamed blocks
+    'ref_func.wast',   # Requires rejecting undeclared functions references
+    'ref_is_null.wast',  # Requires support for non-nullable reference types in tables
+    'return_call_indirect.wast',  # Requires more precise unreachable validation
+    'select.wast',  # Missing validation of type annotation on select
+    'table.wast',  # Requires support for table default elements
+    'unreached-invalid.wast',  # Requires more precise unreachable validation
+    'array.wast',  # Requires support for table default elements
+    'br_if.wast',  # Requires more precise branch validation
+    'br_on_cast.wast',  # Requires host references to not be externalized i31refs
+    'br_on_cast_fail.wast',  # Requires host references to not be externalized i31refs
+    'extern.wast',    # Requires ref.host wast constants
+    'i31.wast',       # Requires support for table default elements
+    'ref_cast.wast',  # Requires host references to not be externalized i31refs
+    'ref_test.wast',  # Requires host references to not be externalized i31refs
+    'struct.wast',    # Duplicate field names not properly rejected
+    'type-rec.wast',  # Missing function type validation on instantiation
+    'type-subtyping.wast',  # ShellExternalInterface::callTable does not handle subtyping
+    'call_indirect.wast',   # Bug with 64-bit inline element segment parsing
+    'memory64.wast',        # Requires validations on the max memory size
+    'imports3.wast',  # Requires better checking of exports from the special "spectest" module
+    'i16x8_relaxed_q15mulr_s.wast',  # Requires wast `either` support
+    'i32x4_relaxed_trunc.wast',      # Requires wast `either` support
+    'i8x16_relaxed_swizzle.wast',    # Requires wast `either` support
+    'relaxed_dot_product.wast',   # Requires wast `either` support
+    'relaxed_laneselect.wast',    # Requires wast `either` support
+    'relaxed_madd_nmadd.wast',    # Requires wast `either` support
+    'relaxed_min_max.wast',       # Requires wast `either` support
+    'simd_const.wast',            # Hex float constant not recognized as out of range
+    'simd_conversions.wast',      # Promoted NaN should be canonical
+    'simd_f32x4.wast',            # Min of 0 and NaN should give a canonical NaN
+    'simd_f32x4_arith.wast',      # Adding inf and -inf should give a canonical NaN
+    'simd_f32x4_rounding.wast',   # Ceil of NaN should give a canonical NaN
+    'simd_f64x2.wast',            # Min of 0 and NaN should give a canonical NaN
+    'simd_f64x2_arith.wast',      # Adding inf and -inf should give a canonical NaN
+    'simd_f64x2_rounding.wast',   # Ceil of NaN should give a canonical NaN
+    'simd_i32x4_cmp.wast',        # UBSan error on integer overflow
+    'simd_i32x4_arith2.wast',     # UBSan error on integer overflow
+    'simd_i32x4_dot_i16x8.wast',  # UBSan error on integer overflow
+    'token.wast',                 # Lexer should require spaces between strings and non-paren tokens
+]
+
+
+def _can_run_spec_test(test):
+    test = Path(test)
+    if 'testsuite' not in test.parts:
+        return not any(test.match(f"test/spec/{test_to_skip}") for test_to_skip in SPEC_TESTS_TO_SKIP)
+
+    if any(proposal in test.parts for proposal in SPEC_TESTSUITE_PROPOSALS_TO_SKIP):
+        return False
+
+    return not any(Path(test).match(f"test/spec/testsuite/{test_to_skip}") for test_to_skip in SPEC_TESTSUITE_TESTS_TO_SKIP)
+
+
+options.spec_tests = [t for t in options.spec_tests if _can_run_spec_test(t)]
 
 
 # check utilities
 
+
 def binary_format_check(wast, verify_final_result=True, wasm_as_args=['-g'],
-                        binary_suffix='.fromBinary', original_wast=None):
+                        binary_suffix='.fromBinary', base_name=None, stdout=None):
     # checks we can convert the wast to binary and back
 
-    print('         (binary format check)')
-    cmd = WASM_AS + [wast, '-o', 'a.wasm', '-all'] + wasm_as_args
-    print('            ', ' '.join(cmd))
-    if os.path.exists('a.wasm'):
-        os.unlink('a.wasm')
-    subprocess.check_call(cmd, stdout=subprocess.PIPE)
-    assert os.path.exists('a.wasm')
+    as_file = f"{base_name}-a.wasm" if base_name is not None else "a.wasm"
+    disassembled_file = f"{base_name}-ab.wast" if base_name is not None else "ab.wast"
 
-    cmd = WASM_DIS + ['a.wasm', '-o', 'ab.wast', '-all']
-    print('            ', ' '.join(cmd))
-    if os.path.exists('ab.wast'):
-        os.unlink('ab.wast')
+    print('         (binary format check)', file=stdout)
+    cmd = WASM_AS + [wast, '-o', as_file, '-all'] + wasm_as_args
+    print('            ', ' '.join(cmd), file=stdout)
+    if os.path.exists(as_file):
+        os.unlink(as_file)
     subprocess.check_call(cmd, stdout=subprocess.PIPE)
-    assert os.path.exists('ab.wast')
+    assert os.path.exists(as_file)
+
+    cmd = WASM_DIS + [as_file, '-o', disassembled_file, '-all']
+    print('            ', ' '.join(cmd), file=stdout)
+    if os.path.exists(disassembled_file):
+        os.unlink(disassembled_file)
+    subprocess.check_call(cmd, stdout=subprocess.PIPE)
+    assert os.path.exists(disassembled_file)
 
     # make sure it is a valid wast
-    cmd = WASM_OPT + ['ab.wast', '-all']
-    print('            ', ' '.join(cmd))
+    cmd = WASM_OPT + [disassembled_file, '-all', '-q']
+    print('            ', ' '.join(cmd), file=stdout)
     subprocess.check_call(cmd, stdout=subprocess.PIPE)
 
     if verify_final_result:
-        actual = open('ab.wast').read()
+        actual = open(disassembled_file).read()
         fail_if_not_identical_to_file(actual, wast + binary_suffix)
 
-    return 'ab.wast'
-
-
-def minify_check(wast, verify_final_result=True):
-    # checks we can parse minified output
-
-    print('     (minify check)')
-    cmd = WASM_OPT + [wast, '--print-minified', '-all']
-    print('      ', ' '.join(cmd))
-    subprocess.check_call(cmd, stdout=open('a.wast', 'w'), stderr=subprocess.PIPE)
-    subprocess.check_call(WASM_OPT + ['a.wast', '-all'],
-                          stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    return disassembled_file
 
 
 # run a check with BINARYEN_PASS_DEBUG set, to do full validation
@@ -512,9 +534,8 @@ def with_pass_debug(check):
     finally:
         if old_pass_debug is not None:
             os.environ['BINARYEN_PASS_DEBUG'] = old_pass_debug
-        else:
-            if 'BINARYEN_PASS_DEBUG' in os.environ:
-                del os.environ['BINARYEN_PASS_DEBUG']
+        elif 'BINARYEN_PASS_DEBUG' in os.environ:
+            del os.environ['BINARYEN_PASS_DEBUG']
 
 
 # checks if we are on windows, and if so logs out that a test is being skipped,
@@ -522,6 +543,22 @@ def with_pass_debug(check):
 # windows, so that we can easily find which tests are skipped.
 def skip_if_on_windows(name):
     if get_platform() == 'windows':
-        print('skipping test "%s" on windows' % name)
+        print(f'skipping test "{name}" on windows')
         return True
     return False
+
+
+test_suffixes = ['*.wasm', '*.wast', '*.wat']
+
+
+# return a list of all the tests in the entire test suite
+def get_all_tests():
+    core_tests = get_tests(get_test_dir('.'), test_suffixes)
+    passes_tests = get_tests(get_test_dir('passes'), test_suffixes)
+    spec_tests = get_tests(get_test_dir('spec'), test_suffixes)
+    wasm2js_tests = get_tests(get_test_dir('wasm2js'), test_suffixes)
+    lld_tests = get_tests(get_test_dir('lld'), test_suffixes)
+    unit_tests = get_tests(get_test_dir(os.path.join('unit', 'input')), test_suffixes)
+    lit_tests = get_tests(get_test_dir('lit'), test_suffixes, recursive=True)
+
+    return core_tests + passes_tests + spec_tests + wasm2js_tests + lld_tests + unit_tests + lit_tests

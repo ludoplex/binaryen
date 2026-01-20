@@ -3,6 +3,8 @@
 
 #include "ir/find_all.h"
 #include "ir/local-graph.h"
+#include "lattice.h"
+#include "lattices/powerset.h"
 #include "visitor-transfer-function.h"
 
 namespace wasm::analysis {
@@ -40,7 +42,7 @@ class ReachingDefinitionsTransferFunction
   std::unordered_map<Index, SmallVector<LocalSet*, 2>> indexSetses;
 
   // LocalGraph members we need to update.
-  LocalGraph::GetSetses& getSetses;
+  LocalGraph::GetSetsMap& getSetsMap;
 
   // Fictitious LocalSet objects to reprsent a local index obtaining its value
   // from its default initial value or parameter value.
@@ -84,9 +86,9 @@ public:
   // are working with doesn't contain the correct Expression**s, but this is
   // left in for future improvements. TODO.
   ReachingDefinitionsTransferFunction(Function* func,
-                                      LocalGraph::GetSetses& getSetses,
+                                      LocalGraph::GetSetsMap& getSetsMap,
                                       LocalGraph::Locations& locations)
-    : numLocals(func->getNumLocals()), getSetses(getSetses),
+    : numLocals(func->getNumLocals()), getSetsMap(getSetsMap),
       lattice(listLocalSets(func, fakeInitialValueSets, fakeSetPtrs)) {
 
     // Map every local index to a set of all the local sets which affect it.
@@ -127,9 +129,9 @@ public:
         if (lattice.exists(currState, setInstance)) {
           // If a pointer to a real LocalSet, add it, otherwise add a nullptr.
           if (fakeSetPtrs.find(setInstance) == fakeSetPtrs.end()) {
-            getSetses[curr].insert(setInstance);
+            getSetsMap[curr].insert(setInstance);
           } else {
-            getSetses[curr].insert(nullptr);
+            getSetsMap[curr].insert(nullptr);
           }
         }
       }

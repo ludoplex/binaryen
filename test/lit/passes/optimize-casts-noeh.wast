@@ -2,14 +2,14 @@
 ;; RUN: wasm-opt %s --optimize-casts --enable-reference-types --enable-gc --enable-tail-call -S -o - | filecheck %s
 
 (module
-  ;; CHECK:      (type $A (struct ))
+  ;; CHECK:      (type $A (struct))
   (type $A (struct))
 
-  ;; CHECK:      (func $yes-past-call (type $ref|struct|_=>_none) (param $x (ref struct))
+  ;; CHECK:      (func $yes-past-call (type $1) (param $x (ref struct))
   ;; CHECK-NEXT:  (local $1 (ref $A))
   ;; CHECK-NEXT:  (drop
   ;; CHECK-NEXT:   (local.tee $1
-  ;; CHECK-NEXT:    (ref.cast $A
+  ;; CHECK-NEXT:    (ref.cast (ref $A)
   ;; CHECK-NEXT:     (local.get $x)
   ;; CHECK-NEXT:    )
   ;; CHECK-NEXT:   )
@@ -21,7 +21,7 @@
   ;; CHECK-NEXT: )
   (func $yes-past-call (param $x (ref struct))
     (drop
-      (ref.cast $A
+      (ref.cast (ref $A)
         (local.get $x)
       )
     )
@@ -34,11 +34,11 @@
     )
   )
 
-  ;; CHECK:      (func $yes-past-return_call (type $ref|struct|_=>_none) (param $x (ref struct))
+  ;; CHECK:      (func $yes-past-return_call (type $1) (param $x (ref struct))
   ;; CHECK-NEXT:  (local $1 (ref $A))
   ;; CHECK-NEXT:  (drop
   ;; CHECK-NEXT:   (local.tee $1
-  ;; CHECK-NEXT:    (ref.cast $A
+  ;; CHECK-NEXT:    (ref.cast (ref $A)
   ;; CHECK-NEXT:     (local.get $x)
   ;; CHECK-NEXT:    )
   ;; CHECK-NEXT:   )
@@ -50,7 +50,7 @@
   ;; CHECK-NEXT: )
   (func $yes-past-return_call (param $x (ref struct))
     (drop
-      (ref.cast $A
+      (ref.cast (ref $A)
         (local.get $x)
       )
     )
@@ -62,8 +62,7 @@
     )
   )
 
-  ;; CHECK:      (func $none (type $none_=>_none)
-  ;; CHECK-NEXT:  (nop)
+  ;; CHECK:      (func $none (type $2)
   ;; CHECK-NEXT: )
   (func $none
     ;; Helper for the above.

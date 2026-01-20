@@ -1,7 +1,9 @@
 import os
 import re
 import subprocess
+
 from scripts.test import shared
+
 from . import utils
 
 
@@ -13,7 +15,6 @@ class PassesTest(utils.BinaryenTestCase):
             hello_wat = self.input_path('hello_world.wat')
             log = shared.run_process(shared.WASM_OPT + [hello_wat] + args,
                                      stderr=subprocess.PIPE).stderr
-            print(log)
             passes = re.findall(r'running pass: ([\w-]+)\.\.\.', log)
             return passes
         finally:
@@ -37,13 +38,19 @@ class PassesTest(utils.BinaryenTestCase):
                 'signature-refining',
                 'gto',
                 'cfp',
-                'gsi',
             ]
             for pass_ in CLOSED_WORLD_PASSES:
                 if closed_world:
                     self.assertIn(pass_, passes)
                 else:
                     self.assertNotIn(pass_, passes)
+
+            # some passes run in open world too
+            OPEN_WORLD_PASSES = [
+                'gsi',
+            ]
+            for pass_ in OPEN_WORLD_PASSES:
+                self.assertIn(pass_, passes)
 
     def test_O3_O1(self):
         # When we run something like -O3 -O1 we should run -O3 followed by -O1

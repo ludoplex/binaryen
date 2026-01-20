@@ -8,20 +8,20 @@
 (module
   ;; YESTNH:      (type $struct (struct (field (mut i32))))
 
-  ;; YESTNH:      (tag $tag (param i32))
+  ;; YESTNH:      (tag $tag (type $1) (param i32))
   ;; NO_TNH:      (type $struct (struct (field (mut i32))))
 
-  ;; NO_TNH:      (tag $tag (param i32))
+  ;; NO_TNH:      (tag $tag (type $2) (param i32))
   (tag $tag (param i32))
 
   (memory 1 1)
 
   (type $struct (struct (field (mut i32))))
 
-  ;; YESTNH:      (func $drop (type $i32_anyref_=>_none) (param $x i32) (param $y anyref)
+  ;; YESTNH:      (func $drop (type $4) (param $x i32) (param $y anyref)
   ;; YESTNH-NEXT:  (nop)
   ;; YESTNH-NEXT: )
-  ;; NO_TNH:      (func $drop (type $i32_anyref_=>_none) (param $x i32) (param $y anyref)
+  ;; NO_TNH:      (func $drop (type $4) (param $x i32) (param $y anyref)
   ;; NO_TNH-NEXT:  (drop
   ;; NO_TNH-NEXT:   (i32.load
   ;; NO_TNH-NEXT:    (local.get $x)
@@ -33,7 +33,7 @@
   ;; NO_TNH-NEXT:   )
   ;; NO_TNH-NEXT:  )
   ;; NO_TNH-NEXT:  (drop
-  ;; NO_TNH-NEXT:   (ref.cast null i31
+  ;; NO_TNH-NEXT:   (ref.cast i31ref
   ;; NO_TNH-NEXT:    (local.get $y)
   ;; NO_TNH-NEXT:   )
   ;; NO_TNH-NEXT:  )
@@ -57,7 +57,7 @@
 
     ;; Other casts as well.
     (drop
-      (ref.cast null i31
+      (ref.cast i31ref
         (local.get $y)
       )
     )
@@ -69,7 +69,7 @@
   )
 
   ;; Other side effects prevent us making any changes.
-  ;; YESTNH:      (func $other-side-effects (type $i32_=>_i32) (param $x i32) (result i32)
+  ;; YESTNH:      (func $other-side-effects (type $3) (param $x i32) (result i32)
   ;; YESTNH-NEXT:  (drop
   ;; YESTNH-NEXT:   (call $other-side-effects
   ;; YESTNH-NEXT:    (i32.const 1)
@@ -80,7 +80,7 @@
   ;; YESTNH-NEXT:  )
   ;; YESTNH-NEXT:  (i32.const 1)
   ;; YESTNH-NEXT: )
-  ;; NO_TNH:      (func $other-side-effects (type $i32_=>_i32) (param $x i32) (result i32)
+  ;; NO_TNH:      (func $other-side-effects (type $3) (param $x i32) (result i32)
   ;; NO_TNH-NEXT:  (drop
   ;; NO_TNH-NEXT:   (call $other-side-effects
   ;; NO_TNH-NEXT:    (i32.const 1)
@@ -117,15 +117,15 @@
   )
 
   ;; A helper function for the above, that returns nothing.
-  ;; YESTNH:      (func $return-nothing (type $none_=>_none)
+  ;; YESTNH:      (func $return-nothing (type $0)
   ;; YESTNH-NEXT:  (nop)
   ;; YESTNH-NEXT: )
-  ;; NO_TNH:      (func $return-nothing (type $none_=>_none)
+  ;; NO_TNH:      (func $return-nothing (type $0)
   ;; NO_TNH-NEXT:  (nop)
   ;; NO_TNH-NEXT: )
   (func $return-nothing)
 
-  ;; YESTNH:      (func $partial (type $ref|$struct|_=>_ref?|$struct|) (param $x (ref $struct)) (result (ref null $struct))
+  ;; YESTNH:      (func $partial (type $5) (param $x (ref $struct)) (result (ref null $struct))
   ;; YESTNH-NEXT:  (local $y (ref null $struct))
   ;; YESTNH-NEXT:  (local.set $y
   ;; YESTNH-NEXT:   (local.get $x)
@@ -135,7 +135,7 @@
   ;; YESTNH-NEXT:  )
   ;; YESTNH-NEXT:  (local.get $y)
   ;; YESTNH-NEXT: )
-  ;; NO_TNH:      (func $partial (type $ref|$struct|_=>_ref?|$struct|) (param $x (ref $struct)) (result (ref null $struct))
+  ;; NO_TNH:      (func $partial (type $5) (param $x (ref $struct)) (result (ref null $struct))
   ;; NO_TNH-NEXT:  (local $y (ref null $struct))
   ;; NO_TNH-NEXT:  (drop
   ;; NO_TNH-NEXT:   (struct.get $struct 0
@@ -179,10 +179,10 @@
     (local.get $y)
   )
 
-  ;; YESTNH:      (func $toplevel (type $none_=>_none)
+  ;; YESTNH:      (func $toplevel (type $0)
   ;; YESTNH-NEXT:  (nop)
   ;; YESTNH-NEXT: )
-  ;; NO_TNH:      (func $toplevel (type $none_=>_none)
+  ;; NO_TNH:      (func $toplevel (type $0)
   ;; NO_TNH-NEXT:  (unreachable)
   ;; NO_TNH-NEXT: )
   (func $toplevel
@@ -191,7 +191,7 @@
     (unreachable)
   )
 
-  ;; YESTNH:      (func $drop-loop (type $none_=>_none)
+  ;; YESTNH:      (func $drop-loop (type $0)
   ;; YESTNH-NEXT:  (drop
   ;; YESTNH-NEXT:   (loop $loop (result i32)
   ;; YESTNH-NEXT:    (br_if $loop
@@ -201,7 +201,7 @@
   ;; YESTNH-NEXT:   )
   ;; YESTNH-NEXT:  )
   ;; YESTNH-NEXT: )
-  ;; NO_TNH:      (func $drop-loop (type $none_=>_none)
+  ;; NO_TNH:      (func $drop-loop (type $0)
   ;; NO_TNH-NEXT:  (drop
   ;; NO_TNH-NEXT:   (loop $loop (result i32)
   ;; NO_TNH-NEXT:    (br_if $loop
@@ -224,7 +224,7 @@
     )
   )
 
-  ;; YESTNH:      (func $loop-effects (type $none_=>_none)
+  ;; YESTNH:      (func $loop-effects (type $0)
   ;; YESTNH-NEXT:  (drop
   ;; YESTNH-NEXT:   (loop $loop (result i32)
   ;; YESTNH-NEXT:    (drop
@@ -239,7 +239,7 @@
   ;; YESTNH-NEXT:   )
   ;; YESTNH-NEXT:  )
   ;; YESTNH-NEXT: )
-  ;; NO_TNH:      (func $loop-effects (type $none_=>_none)
+  ;; NO_TNH:      (func $loop-effects (type $0)
   ;; NO_TNH-NEXT:  (drop
   ;; NO_TNH-NEXT:   (loop $loop (result i32)
   ;; NO_TNH-NEXT:    (drop
@@ -272,7 +272,7 @@
     )
   )
 
-  ;; YESTNH:      (func $if-unreachable (type $i32_=>_none) (param $p i32)
+  ;; YESTNH:      (func $if-unreachable (type $1) (param $p i32)
   ;; YESTNH-NEXT:  (drop
   ;; YESTNH-NEXT:   (local.get $p)
   ;; YESTNH-NEXT:  )
@@ -286,61 +286,89 @@
   ;; YESTNH-NEXT:  )
   ;; YESTNH-NEXT:  (if
   ;; YESTNH-NEXT:   (local.get $p)
-  ;; YESTNH-NEXT:   (unreachable)
-  ;; YESTNH-NEXT:   (unreachable)
+  ;; YESTNH-NEXT:   (then
+  ;; YESTNH-NEXT:    (unreachable)
+  ;; YESTNH-NEXT:   )
+  ;; YESTNH-NEXT:   (else
+  ;; YESTNH-NEXT:    (unreachable)
+  ;; YESTNH-NEXT:   )
   ;; YESTNH-NEXT:  )
   ;; YESTNH-NEXT: )
-  ;; NO_TNH:      (func $if-unreachable (type $i32_=>_none) (param $p i32)
+  ;; NO_TNH:      (func $if-unreachable (type $2) (param $p i32)
   ;; NO_TNH-NEXT:  (if
   ;; NO_TNH-NEXT:   (local.get $p)
-  ;; NO_TNH-NEXT:   (unreachable)
-  ;; NO_TNH-NEXT:  )
-  ;; NO_TNH-NEXT:  (if
-  ;; NO_TNH-NEXT:   (local.get $p)
-  ;; NO_TNH-NEXT:   (call $if-unreachable
-  ;; NO_TNH-NEXT:    (i32.const 0)
+  ;; NO_TNH-NEXT:   (then
+  ;; NO_TNH-NEXT:    (unreachable)
   ;; NO_TNH-NEXT:   )
-  ;; NO_TNH-NEXT:   (unreachable)
   ;; NO_TNH-NEXT:  )
   ;; NO_TNH-NEXT:  (if
   ;; NO_TNH-NEXT:   (local.get $p)
-  ;; NO_TNH-NEXT:   (unreachable)
-  ;; NO_TNH-NEXT:   (unreachable)
+  ;; NO_TNH-NEXT:   (then
+  ;; NO_TNH-NEXT:    (call $if-unreachable
+  ;; NO_TNH-NEXT:     (i32.const 0)
+  ;; NO_TNH-NEXT:    )
+  ;; NO_TNH-NEXT:   )
+  ;; NO_TNH-NEXT:   (else
+  ;; NO_TNH-NEXT:    (unreachable)
+  ;; NO_TNH-NEXT:   )
+  ;; NO_TNH-NEXT:  )
+  ;; NO_TNH-NEXT:  (if
+  ;; NO_TNH-NEXT:   (local.get $p)
+  ;; NO_TNH-NEXT:   (then
+  ;; NO_TNH-NEXT:    (unreachable)
+  ;; NO_TNH-NEXT:   )
+  ;; NO_TNH-NEXT:   (else
+  ;; NO_TNH-NEXT:    (unreachable)
+  ;; NO_TNH-NEXT:   )
   ;; NO_TNH-NEXT:  )
   ;; NO_TNH-NEXT: )
   (func $if-unreachable (param $p i32)
     ;; The if arm can be nopped, as in tnh we assume we never reach it.
     (if
       (local.get $p)
-      (unreachable)
+      (then
+        (unreachable)
+      )
     )
     ;; This else arm can be removed.
     (if
       (local.get $p)
-      (call $if-unreachable
-        (i32.const 0)
+      (then
+        (call $if-unreachable
+          (i32.const 0)
+        )
       )
-      (unreachable)
+      (else
+        (unreachable)
+      )
     )
     ;; Both of these can be removed, but we leave this for DCE to handle.
     (if
       (local.get $p)
-      (unreachable)
-      (unreachable)
+      (then
+        (unreachable)
+      )
+      (else
+        (unreachable)
+      )
     )
   )
 
-  ;; YESTNH:      (func $if-unreachable-value (type $i32_=>_i32) (param $p i32) (result i32)
+  ;; YESTNH:      (func $if-unreachable-value (type $3) (param $p i32) (result i32)
   ;; YESTNH-NEXT:  (drop
   ;; YESTNH-NEXT:   (local.get $p)
   ;; YESTNH-NEXT:  )
   ;; YESTNH-NEXT:  (i32.const 1)
   ;; YESTNH-NEXT: )
-  ;; NO_TNH:      (func $if-unreachable-value (type $i32_=>_i32) (param $p i32) (result i32)
+  ;; NO_TNH:      (func $if-unreachable-value (type $3) (param $p i32) (result i32)
   ;; NO_TNH-NEXT:  (if (result i32)
   ;; NO_TNH-NEXT:   (local.get $p)
-  ;; NO_TNH-NEXT:   (unreachable)
-  ;; NO_TNH-NEXT:   (i32.const 1)
+  ;; NO_TNH-NEXT:   (then
+  ;; NO_TNH-NEXT:    (unreachable)
+  ;; NO_TNH-NEXT:   )
+  ;; NO_TNH-NEXT:   (else
+  ;; NO_TNH-NEXT:    (i32.const 1)
+  ;; NO_TNH-NEXT:   )
   ;; NO_TNH-NEXT:  )
   ;; NO_TNH-NEXT: )
   (func $if-unreachable-value (param $p i32) (result i32)
@@ -348,60 +376,76 @@
     ;; cannot have a nop there.
     (if (result i32)
       (local.get $p)
-      (unreachable)
-      (i32.const 1)
+      (then
+        (unreachable)
+      )
+      (else
+        (i32.const 1)
+      )
     )
   )
 
-  ;; YESTNH:      (func $if-unreachable-value-2 (type $i32_=>_i32) (param $p i32) (result i32)
+  ;; YESTNH:      (func $if-unreachable-value-2 (type $3) (param $p i32) (result i32)
   ;; YESTNH-NEXT:  (drop
   ;; YESTNH-NEXT:   (local.get $p)
   ;; YESTNH-NEXT:  )
   ;; YESTNH-NEXT:  (i32.const 1)
   ;; YESTNH-NEXT: )
-  ;; NO_TNH:      (func $if-unreachable-value-2 (type $i32_=>_i32) (param $p i32) (result i32)
+  ;; NO_TNH:      (func $if-unreachable-value-2 (type $3) (param $p i32) (result i32)
   ;; NO_TNH-NEXT:  (if (result i32)
   ;; NO_TNH-NEXT:   (local.get $p)
-  ;; NO_TNH-NEXT:   (i32.const 1)
-  ;; NO_TNH-NEXT:   (unreachable)
+  ;; NO_TNH-NEXT:   (then
+  ;; NO_TNH-NEXT:    (i32.const 1)
+  ;; NO_TNH-NEXT:   )
+  ;; NO_TNH-NEXT:   (else
+  ;; NO_TNH-NEXT:    (unreachable)
+  ;; NO_TNH-NEXT:   )
   ;; NO_TNH-NEXT:  )
   ;; NO_TNH-NEXT: )
   (func $if-unreachable-value-2 (param $p i32) (result i32)
     ;; As above but in the other arm.
     (if (result i32)
       (local.get $p)
-      (i32.const 1)
-      (unreachable)
+      (then
+        (i32.const 1)
+      )
+      (else
+        (unreachable)
+      )
     )
   )
 
-  ;; YESTNH:      (func $block-unreachable (type $i32_=>_none) (param $p i32)
+  ;; YESTNH:      (func $block-unreachable (type $1) (param $p i32)
   ;; YESTNH-NEXT:  (if
   ;; YESTNH-NEXT:   (local.get $p)
-  ;; YESTNH-NEXT:   (block
+  ;; YESTNH-NEXT:   (then
   ;; YESTNH-NEXT:    (i32.store
   ;; YESTNH-NEXT:     (i32.const 0)
   ;; YESTNH-NEXT:     (i32.const 1)
   ;; YESTNH-NEXT:    )
   ;; YESTNH-NEXT:    (if
   ;; YESTNH-NEXT:     (local.get $p)
-  ;; YESTNH-NEXT:     (return)
+  ;; YESTNH-NEXT:     (then
+  ;; YESTNH-NEXT:      (return)
+  ;; YESTNH-NEXT:     )
   ;; YESTNH-NEXT:    )
   ;; YESTNH-NEXT:    (unreachable)
   ;; YESTNH-NEXT:   )
   ;; YESTNH-NEXT:  )
   ;; YESTNH-NEXT: )
-  ;; NO_TNH:      (func $block-unreachable (type $i32_=>_none) (param $p i32)
+  ;; NO_TNH:      (func $block-unreachable (type $2) (param $p i32)
   ;; NO_TNH-NEXT:  (if
   ;; NO_TNH-NEXT:   (local.get $p)
-  ;; NO_TNH-NEXT:   (block
+  ;; NO_TNH-NEXT:   (then
   ;; NO_TNH-NEXT:    (i32.store
   ;; NO_TNH-NEXT:     (i32.const 0)
   ;; NO_TNH-NEXT:     (i32.const 1)
   ;; NO_TNH-NEXT:    )
   ;; NO_TNH-NEXT:    (if
   ;; NO_TNH-NEXT:     (local.get $p)
-  ;; NO_TNH-NEXT:     (return)
+  ;; NO_TNH-NEXT:     (then
+  ;; NO_TNH-NEXT:      (return)
+  ;; NO_TNH-NEXT:     )
   ;; NO_TNH-NEXT:    )
   ;; NO_TNH-NEXT:    (i32.store
   ;; NO_TNH-NEXT:     (i32.const 2)
@@ -414,89 +458,99 @@
   (func $block-unreachable (param $p i32)
     (if
       (local.get $p)
-      (block
-        (i32.store
-          (i32.const 0)
-          (i32.const 1)
+      (then
+        (block
+          (i32.store
+            (i32.const 0)
+            (i32.const 1)
+          )
+          (if
+            (local.get $p)
+            (then
+              (return)
+            )
+          )
+          ;; This store can be removed as it leads up to an unreachable which we
+          ;; assume is never reached.
+          (i32.store
+            (i32.const 2)
+            (i32.const 3)
+          )
+          (unreachable)
         )
-        (if
-          (local.get $p)
-          (return)
-        )
-        ;; This store can be removed as it leads up to an unreachable which we
-        ;; assume is never reached.
-        (i32.store
-          (i32.const 2)
-          (i32.const 3)
-        )
-        (unreachable)
       )
     )
   )
 
-  ;; YESTNH:      (func $block-unreachable-named (type $i32_=>_none) (param $p i32)
+  ;; YESTNH:      (func $block-unreachable-named (type $1) (param $p i32)
   ;; YESTNH-NEXT:  (if
   ;; YESTNH-NEXT:   (local.get $p)
-  ;; YESTNH-NEXT:   (block $named
-  ;; YESTNH-NEXT:    (i32.store
-  ;; YESTNH-NEXT:     (i32.const 0)
-  ;; YESTNH-NEXT:     (i32.const 1)
+  ;; YESTNH-NEXT:   (then
+  ;; YESTNH-NEXT:    (block $named
+  ;; YESTNH-NEXT:     (i32.store
+  ;; YESTNH-NEXT:      (i32.const 0)
+  ;; YESTNH-NEXT:      (i32.const 1)
+  ;; YESTNH-NEXT:     )
+  ;; YESTNH-NEXT:     (br_if $named
+  ;; YESTNH-NEXT:      (local.get $p)
+  ;; YESTNH-NEXT:     )
+  ;; YESTNH-NEXT:     (unreachable)
   ;; YESTNH-NEXT:    )
-  ;; YESTNH-NEXT:    (br_if $named
-  ;; YESTNH-NEXT:     (local.get $p)
-  ;; YESTNH-NEXT:    )
-  ;; YESTNH-NEXT:    (unreachable)
   ;; YESTNH-NEXT:   )
   ;; YESTNH-NEXT:  )
   ;; YESTNH-NEXT: )
-  ;; NO_TNH:      (func $block-unreachable-named (type $i32_=>_none) (param $p i32)
+  ;; NO_TNH:      (func $block-unreachable-named (type $2) (param $p i32)
   ;; NO_TNH-NEXT:  (if
   ;; NO_TNH-NEXT:   (local.get $p)
-  ;; NO_TNH-NEXT:   (block $named
-  ;; NO_TNH-NEXT:    (i32.store
-  ;; NO_TNH-NEXT:     (i32.const 0)
-  ;; NO_TNH-NEXT:     (i32.const 1)
+  ;; NO_TNH-NEXT:   (then
+  ;; NO_TNH-NEXT:    (block $named
+  ;; NO_TNH-NEXT:     (i32.store
+  ;; NO_TNH-NEXT:      (i32.const 0)
+  ;; NO_TNH-NEXT:      (i32.const 1)
+  ;; NO_TNH-NEXT:     )
+  ;; NO_TNH-NEXT:     (br_if $named
+  ;; NO_TNH-NEXT:      (local.get $p)
+  ;; NO_TNH-NEXT:     )
+  ;; NO_TNH-NEXT:     (i32.store
+  ;; NO_TNH-NEXT:      (i32.const 2)
+  ;; NO_TNH-NEXT:      (i32.const 3)
+  ;; NO_TNH-NEXT:     )
+  ;; NO_TNH-NEXT:     (unreachable)
   ;; NO_TNH-NEXT:    )
-  ;; NO_TNH-NEXT:    (br_if $named
-  ;; NO_TNH-NEXT:     (local.get $p)
-  ;; NO_TNH-NEXT:    )
-  ;; NO_TNH-NEXT:    (i32.store
-  ;; NO_TNH-NEXT:     (i32.const 2)
-  ;; NO_TNH-NEXT:     (i32.const 3)
-  ;; NO_TNH-NEXT:    )
-  ;; NO_TNH-NEXT:    (unreachable)
   ;; NO_TNH-NEXT:   )
   ;; NO_TNH-NEXT:  )
   ;; NO_TNH-NEXT: )
   (func $block-unreachable-named (param $p i32)
     (if
       (local.get $p)
-      (block $named
-        (i32.store
-          (i32.const 0)
-          (i32.const 1)
+      (then
+        (block $named
+          (i32.store
+            (i32.const 0)
+            (i32.const 1)
+          )
+          ;; As above, but now the block is named and we use a br_if. We should
+          ;; again only remove the last store.
+          (br_if $named
+            (local.get $p)
+          )
+          (i32.store
+            (i32.const 2)
+            (i32.const 3)
+          )
+          (unreachable)
         )
-        ;; As above, but now the block is named and we use a br_if. We should
-        ;; again only remove the last store.
-        (br_if $named
-          (local.get $p)
-        )
-        (i32.store
-          (i32.const 2)
-          (i32.const 3)
-        )
-        (unreachable)
       )
     )
   )
 
-  ;; YESTNH:      (func $block-unreachable-all (type $i32_=>_none) (param $p i32)
+  ;; YESTNH:      (func $block-unreachable-all (type $1) (param $p i32)
   ;; YESTNH-NEXT:  (nop)
   ;; YESTNH-NEXT: )
-  ;; NO_TNH:      (func $block-unreachable-all (type $i32_=>_none) (param $p i32)
+  ;; NO_TNH:      (func $block-unreachable-all (type $2) (param $p i32)
   ;; NO_TNH-NEXT:  (if
   ;; NO_TNH-NEXT:   (local.get $p)
-  ;; NO_TNH-NEXT:   (block
+  ;; NO_TNH-NEXT:   (then
   ;; NO_TNH-NEXT:    (i32.store
   ;; NO_TNH-NEXT:     (i32.const 0)
   ;; NO_TNH-NEXT:     (i32.const 1)
@@ -512,23 +566,25 @@
   (func $block-unreachable-all (param $p i32)
     (if
       (local.get $p)
-      (block
-        ;; Both stores can be removed, and even the entire if arm and then the
-        ;; entire if.
-        (i32.store
-          (i32.const 0)
-          (i32.const 1)
+      (then
+        (block
+          ;; Both stores can be removed, and even the entire if arm and then the
+          ;; entire if.
+          (i32.store
+            (i32.const 0)
+            (i32.const 1)
+          )
+          (i32.store
+            (i32.const 2)
+            (i32.const 3)
+          )
+          (unreachable)
         )
-        (i32.store
-          (i32.const 2)
-          (i32.const 3)
-        )
-        (unreachable)
       )
     )
   )
 
-  ;; YESTNH:      (func $block-unreachable-but-call (type $none_=>_none)
+  ;; YESTNH:      (func $block-unreachable-but-call (type $0)
   ;; YESTNH-NEXT:  (i32.store
   ;; YESTNH-NEXT:   (i32.const 0)
   ;; YESTNH-NEXT:   (i32.const 1)
@@ -536,7 +592,7 @@
   ;; YESTNH-NEXT:  (call $block-unreachable-but-call)
   ;; YESTNH-NEXT:  (unreachable)
   ;; YESTNH-NEXT: )
-  ;; NO_TNH:      (func $block-unreachable-but-call (type $none_=>_none)
+  ;; NO_TNH:      (func $block-unreachable-but-call (type $0)
   ;; NO_TNH-NEXT:  (i32.store
   ;; NO_TNH-NEXT:   (i32.const 0)
   ;; NO_TNH-NEXT:   (i32.const 1)
@@ -564,7 +620,7 @@
     (unreachable)
   )
 
-  ;; YESTNH:      (func $catch-pop (type $none_=>_none)
+  ;; YESTNH:      (func $catch-pop (type $0)
   ;; YESTNH-NEXT:  (try $try
   ;; YESTNH-NEXT:   (do
   ;; YESTNH-NEXT:    (call $catch-pop)
@@ -577,7 +633,7 @@
   ;; YESTNH-NEXT:   )
   ;; YESTNH-NEXT:  )
   ;; YESTNH-NEXT: )
-  ;; NO_TNH:      (func $catch-pop (type $none_=>_none)
+  ;; NO_TNH:      (func $catch-pop (type $0)
   ;; NO_TNH-NEXT:  (try $try
   ;; NO_TNH-NEXT:   (do
   ;; NO_TNH-NEXT:    (call $catch-pop)
@@ -617,7 +673,7 @@
     )
   )
 
-  ;; YESTNH:      (func $loop-unreachable (type $i32_=>_none) (param $p i32)
+  ;; YESTNH:      (func $loop-unreachable (type $1) (param $p i32)
   ;; YESTNH-NEXT:  (loop $loop
   ;; YESTNH-NEXT:   (i32.store
   ;; YESTNH-NEXT:    (i32.const 0)
@@ -625,12 +681,14 @@
   ;; YESTNH-NEXT:   )
   ;; YESTNH-NEXT:   (if
   ;; YESTNH-NEXT:    (local.get $p)
-  ;; YESTNH-NEXT:    (br $loop)
+  ;; YESTNH-NEXT:    (then
+  ;; YESTNH-NEXT:     (br $loop)
+  ;; YESTNH-NEXT:    )
   ;; YESTNH-NEXT:   )
   ;; YESTNH-NEXT:   (unreachable)
   ;; YESTNH-NEXT:  )
   ;; YESTNH-NEXT: )
-  ;; NO_TNH:      (func $loop-unreachable (type $i32_=>_none) (param $p i32)
+  ;; NO_TNH:      (func $loop-unreachable (type $2) (param $p i32)
   ;; NO_TNH-NEXT:  (loop $loop
   ;; NO_TNH-NEXT:   (i32.store
   ;; NO_TNH-NEXT:    (i32.const 0)
@@ -638,7 +696,9 @@
   ;; NO_TNH-NEXT:   )
   ;; NO_TNH-NEXT:   (if
   ;; NO_TNH-NEXT:    (local.get $p)
-  ;; NO_TNH-NEXT:    (br $loop)
+  ;; NO_TNH-NEXT:    (then
+  ;; NO_TNH-NEXT:     (br $loop)
+  ;; NO_TNH-NEXT:    )
   ;; NO_TNH-NEXT:   )
   ;; NO_TNH-NEXT:   (i32.store
   ;; NO_TNH-NEXT:    (i32.const 2)
@@ -655,7 +715,9 @@
       )
       (if
         (local.get $p)
-        (br $loop)
+        (then
+          (br $loop)
+        )
       )
       ;; This store can be removed as it leads up to an unreachable which we
       ;; assume is never reached.
@@ -665,5 +727,24 @@
       )
       (unreachable)
     )
+  )
+
+  ;; YESTNH:      (func $unreached-infinite-loop (type $0)
+  ;; YESTNH-NEXT:  (loop $label$1
+  ;; YESTNH-NEXT:   (br $label$1)
+  ;; YESTNH-NEXT:  )
+  ;; YESTNH-NEXT: )
+  ;; NO_TNH:      (func $unreached-infinite-loop (type $0)
+  ;; NO_TNH-NEXT:  (loop $label$1
+  ;; NO_TNH-NEXT:   (br $label$1)
+  ;; NO_TNH-NEXT:  )
+  ;; NO_TNH-NEXT: )
+  (func $unreached-infinite-loop
+    ;; Code that reaches an unreachable can be removed in TNH mode, but an
+    ;; infinite loop may not reach it, so nothing can be removed here.
+    (loop $label$1
+      (br $label$1)
+    )
+    (unreachable)
   )
 )

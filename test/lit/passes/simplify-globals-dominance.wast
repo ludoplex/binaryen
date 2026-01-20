@@ -3,18 +3,18 @@
 ;; RUN: foreach %s %t wasm-opt --simplify-globals -all -S -o - | filecheck %s
 
 (module
-  ;; CHECK:      (type $none_=>_none (func))
+  ;; CHECK:      (type $0 (func))
 
   ;; CHECK:      (global $global (mut i32) (i32.const 0))
   (global $global (mut i32) (i32.const 0))
 
-  ;; CHECK:      (func $test (type $none_=>_none)
+  ;; CHECK:      (func $test (type $0)
   ;; CHECK-NEXT:  (global.set $global
   ;; CHECK-NEXT:   (i32.const 10)
   ;; CHECK-NEXT:  )
   ;; CHECK-NEXT:  (if
   ;; CHECK-NEXT:   (i32.const 0)
-  ;; CHECK-NEXT:   (block
+  ;; CHECK-NEXT:   (then
   ;; CHECK-NEXT:    (drop
   ;; CHECK-NEXT:     (i32.const 10)
   ;; CHECK-NEXT:    )
@@ -23,8 +23,10 @@
   ;; CHECK-NEXT:     (global.get $global)
   ;; CHECK-NEXT:    )
   ;; CHECK-NEXT:   )
-  ;; CHECK-NEXT:   (drop
-  ;; CHECK-NEXT:    (global.get $global)
+  ;; CHECK-NEXT:   (else
+  ;; CHECK-NEXT:    (drop
+  ;; CHECK-NEXT:     (global.get $global)
+  ;; CHECK-NEXT:    )
   ;; CHECK-NEXT:   )
   ;; CHECK-NEXT:  )
   ;; CHECK-NEXT: )
@@ -34,21 +36,25 @@
     )
     (if
       (i32.const 0)
-      (block
-        ;; This is dominated by the set, so we can apply 10 here.
-        (drop
-          (global.get $global)
-        )
-        (call $test)
-        ;; This is after a call, so we do nothing (we are still dominated by the
-        ;; global.set, but the call might set the global to another value).
-        (drop
-          (global.get $global)
+      (then
+        (block
+          ;; This is dominated by the set, so we can apply 10 here.
+          (drop
+            (global.get $global)
+          )
+          (call $test)
+          ;; This is after a call, so we do nothing (we are still dominated by the
+          ;; global.set, but the call might set the global to another value).
+          (drop
+            (global.get $global)
+          )
         )
       )
       ;; This is dominated by the set, but we do not optimize it yet. TODO
-      (drop
-        (global.get $global)
+      (else
+        (drop
+          (global.get $global)
+        )
       )
     )
   )

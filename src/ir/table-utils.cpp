@@ -21,6 +21,11 @@
 
 namespace wasm::TableUtils {
 
+bool isSubType(const Table& a, const Table& b) {
+  return a.addressType == b.addressType && Type::isSubType(a.type, b.type) &&
+         a.initial >= b.initial && a.max <= b.max;
+}
+
 std::set<Name> getFunctionsNeedingElemDeclare(Module& wasm) {
   // Without reference types there are no ref.funcs or elem declare.
   if (!wasm.features.hasReferenceTypes()) {
@@ -72,14 +77,89 @@ bool usesExpressions(ElementSegment* curr, Module* module) {
       return entry->is<RefFunc>();
     });
 
-  // If the table has a specialized (non-MVP) type, then the segment must
-  // declare a type that is a subtype of that, so it must use the post-MVP form
-  // of using expressions.
-  bool hasTableOfSpecializedType =
-    curr->table.is() &&
-    module->getTable(curr->table)->type != Type(HeapType::func, Nullable);
+  // If the segment has a specialized (non-MVP) type, then it must use the
+  // post-MVP form of using expressions.
+  bool hasSpecializedType = curr->type != Type(HeapType::func, Nullable);
 
-  return !allElementsRefFunc || hasTableOfSpecializedType;
+  return !allElementsRefFunc || hasSpecializedType;
+}
+
+TableInfoMap computeTableInfo(Module& wasm, bool initialContentsImmutable) {
+  // Set up the initial info.
+  TableInfoMap tables;
+  if (wasm.tables.empty()) {
+    return tables;
+  }
+  for (auto& table : wasm.tables) {
+    tables[table->name].initialContentsImmutable = initialContentsImmutable;
+    tables[table->name].flatTable =
+      std::make_unique<TableUtils::FlatTable>(wasm, *table);
+  }
+
+  // Next, look at the imports and exports.
+
+  for (auto& table : wasm.tables) {
+    if (table->imported()) {
+      tables[table->name].mayBeModified = true;
+    }
+  }
+
+  for (auto& ex : wasm.exports) {
+    if (ex->kind == ExternalKind::Table) {
+      tables[*ex->getInternalName()].mayBeModified = true;
+    }
+  }
+
+  // Find which tables have sets, by scanning for instructions. Only do so if we
+  // might learn anything new.
+  auto hasUnmodifiableTable = false;
+  for (auto& [_, info] : tables) {
+    if (!info.mayBeModified) {
+      hasUnmodifiableTable = true;
+      break;
+    }
+  }
+  if (!hasUnmodifiableTable) {
+    return tables;
+  }
+
+  using TablesWithSet = std::unordered_set<Name>;
+
+  ModuleUtils::ParallelFunctionAnalysis<TablesWithSet> analysis(
+    wasm, [&](Function* func, TablesWithSet& tablesWithSet) {
+      if (func->imported()) {
+        return;
+      }
+
+      struct Finder : public PostWalker<Finder> {
+        TablesWithSet& tablesWithSet;
+
+        Finder(TablesWithSet& tablesWithSet) : tablesWithSet(tablesWithSet) {}
+
+        void visitTableSet(TableSet* curr) {
+          tablesWithSet.insert(curr->table);
+        }
+        void visitTableFill(TableFill* curr) {
+          tablesWithSet.insert(curr->table);
+        }
+        void visitTableCopy(TableCopy* curr) {
+          tablesWithSet.insert(curr->destTable);
+        }
+        void visitTableInit(TableInit* curr) {
+          tablesWithSet.insert(curr->table);
+        }
+      };
+
+      Finder(tablesWithSet).walkFunction(func);
+    });
+
+  for (auto& [_, names] : analysis.map) {
+    for (auto name : names) {
+      tables[name].mayBeModified = true;
+    }
+  }
+
+  return tables;
 }
 
 } // namespace wasm::TableUtils

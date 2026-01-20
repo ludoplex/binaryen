@@ -73,9 +73,9 @@ void Instrumenter::addSecondaryMemory(size_t numFuncs) {
     // Don't need secondary memory
     return;
   }
-  if (!wasm->features.hasMultiMemories()) {
+  if (!wasm->features.hasMultiMemory()) {
     Fatal()
-      << "error: --in-secondary-memory requires multi-memories to be enabled";
+      << "error: --in-secondary-memory requires multimemory to be enabled";
   }
 
   secondaryMemory =
@@ -151,7 +151,8 @@ void Instrumenter::instrumentFuncs() {
                                   builder.makeConstPtr(0, Type::i32),
                                   builder.makeConst(uint32_t(1)),
                                   Type::i32,
-                                  memoryName),
+                                  memoryName,
+                                  MemoryOrder::SeqCst),
           func->body,
           func->body->type);
         ++funcIdx;
@@ -177,32 +178,12 @@ void Instrumenter::instrumentFuncs() {
 // the instrumented run than funtions with larger timestamps.
 
 void Instrumenter::addProfileExport(size_t numFuncs) {
-  // Create and export a function to dump the profile into a given memory
-  // buffer. The function takes the available address and buffer size as
-  // arguments and returns the total size of the profile. It only actually
-  // writes the profile if the given space is sufficient to hold it.
-  auto name = Names::getValidFunctionName(*wasm, config.profileExport);
-  auto writeProfile = Builder::makeFunction(
-    name, Signature({Type::i32, Type::i32}, Type::i32), {});
-  writeProfile->hasExplicitName = true;
-  writeProfile->setLocalName(0, "addr");
-  writeProfile->setLocalName(1, "size");
-
   // Calculate the size of the profile:
   //   8 bytes module hash +
   //   4 bytes for the timestamp for each function
   const size_t profileSize = 8 + 4 * numFuncs;
 
-  // Create the function body
-  Builder builder(*wasm);
-  auto getAddr = [&]() { return builder.makeLocalGet(0, Type::i32); };
-  auto getSize = [&]() { return builder.makeLocalGet(1, Type::i32); };
-  auto hashConst = [&]() { return builder.makeConst(int64_t(moduleHash)); };
-  auto profileSizeConst = [&]() {
-    return builder.makeConst(int32_t(profileSize));
-  };
-
-  // Also make sure there is a memory with enough pages to write into
+  // Make sure there is a memory with enough pages to write into
   size_t pages = (profileSize + Memory::kPageSize - 1) / Memory::kPageSize;
   if (wasm->memories.empty()) {
     wasm->addMemory(Builder::makeMemory("0"));
@@ -214,6 +195,28 @@ void Instrumenter::addProfileExport(size_t numFuncs) {
       wasm->memories[0]->max = pages;
     }
   }
+
+  auto ptrType = wasm->memories[0]->addressType;
+
+  // Create and export a function to dump the profile into a given memory
+  // buffer. The function takes the available address and buffer size as
+  // arguments and returns the total size of the profile. It only actually
+  // writes the profile if the given space is sufficient to hold it.
+  auto name = Names::getValidFunctionName(*wasm, config.profileExport);
+  auto writeProfile =
+    Builder::makeFunction(name, Signature({ptrType, Type::i32}, Type::i32), {});
+  writeProfile->hasExplicitName = true;
+  writeProfile->setLocalName(0, "addr");
+  writeProfile->setLocalName(1, "size");
+
+  // Create the function body
+  Builder builder(*wasm);
+  auto getAddr = [&]() { return builder.makeLocalGet(0, ptrType); };
+  auto getSize = [&]() { return builder.makeLocalGet(1, Type::i32); };
+  auto hashConst = [&]() { return builder.makeConst(int64_t(moduleHash)); };
+  auto profileSizeConst = [&]() {
+    return builder.makeConst(int32_t(profileSize));
+  };
 
   // Write the hash followed by all the time stamps
   Expression* writeData = builder.makeStore(
@@ -285,8 +288,12 @@ void Instrumenter::addProfileExport(size_t numFuncs) {
                   getAddr(),
                   builder.makeBinary(
                     MulInt32, getFuncIdx(), builder.makeConst(uint32_t(4)))),
-                builder.makeAtomicLoad(
-                  1, 0, getFuncIdx(), Type::i32, loadMemoryName),
+                builder.makeAtomicLoad(1,
+                                       0,
+                                       getFuncIdx(),
+                                       Type::i32,
+                                       loadMemoryName,
+                                       MemoryOrder::SeqCst),
                 Type::i32,
                 wasm->memories[0]->name),
               builder.makeLocalSet(

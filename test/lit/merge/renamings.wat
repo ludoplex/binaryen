@@ -9,19 +9,19 @@
 
   ;; This tag has a conflict in second.wat, and so second.wat's $foo
   ;; will be renamed.
-  ;; CHECK:      (type $none_=>_none (func))
+  ;; CHECK:      (type $1 (func))
 
-  ;; CHECK:      (type $f64_=>_none (func (param f64)))
+  ;; CHECK:      (type $2 (func (param f64)))
 
-  ;; CHECK:      (type $ref|$array|_=>_none (func (param (ref $array))))
+  ;; CHECK:      (type $3 (func (param (ref $array))))
 
-  ;; CHECK:      (type $i32_=>_none (func (param i32)))
+  ;; CHECK:      (type $4 (func (param i32)))
 
-  ;; CHECK:      (type $i64_=>_none (func (param i64)))
+  ;; CHECK:      (type $5 (func (param i64)))
 
-  ;; CHECK:      (type $f32_=>_none (func (param f32)))
+  ;; CHECK:      (type $6 (func (param f32)))
 
-  ;; CHECK:      (import "elsewhere" "some.tag" (tag $imported (param f64)))
+  ;; CHECK:      (import "elsewhere" "some.tag" (tag $imported (type $2) (param f64)))
 
   ;; CHECK:      (global $foo i32 (i32.const 1))
   (global $foo i32 (i32.const 1))
@@ -72,28 +72,28 @@
   ;; CHECK:      (table $other 70 80 funcref)
 
   ;; CHECK:      (elem $foo func $foo $bar)
-  (elem $foo (ref null func) $foo $bar)
+  (elem $foo func $foo $bar)
 
   ;; This elem has a conflict in second.wat, and so second.wat's $bar
   ;; will be renamed.
   ;; CHECK:      (elem $bar func $bar $foo)
-  (elem $bar (ref null func) $bar $foo)
+  (elem $bar func $bar $foo)
 
   ;; CHECK:      (elem $other func $foo_3 $other)
 
   ;; CHECK:      (elem $bar_2 func $other $foo_3)
 
-  ;; CHECK:      (tag $foo (param i32))
+  ;; CHECK:      (tag $foo (type $4) (param i32))
   (tag $foo (param i32))
 
-  ;; CHECK:      (tag $bar (param i64))
+  ;; CHECK:      (tag $bar (type $5) (param i64))
   (tag $bar (param i64))
 
   ;; This export has a conflict in second.wat, and so second.wat's $foo
   ;; will be renamed.
-  ;; CHECK:      (tag $foo_2 (param f32))
+  ;; CHECK:      (tag $foo_2 (type $6) (param f32))
 
-  ;; CHECK:      (tag $other (param f64))
+  ;; CHECK:      (tag $other (type $2) (param f64))
 
   ;; CHECK:      (export "foo" (func $foo))
   (export "foo" (func $foo))
@@ -114,7 +114,7 @@
 
   ;; CHECK:      (export "other-b" (func $other))
 
-  ;; CHECK:      (func $foo (type $none_=>_none)
+  ;; CHECK:      (func $foo (type $1)
   ;; CHECK-NEXT:  (drop
   ;; CHECK-NEXT:   (i32.const 1)
   ;; CHECK-NEXT:  )
@@ -127,7 +127,7 @@
     )
   )
 
-  ;; CHECK:      (func $bar (type $none_=>_none)
+  ;; CHECK:      (func $bar (type $1)
   ;; CHECK-NEXT:  (drop
   ;; CHECK-NEXT:   (i32.const 2)
   ;; CHECK-NEXT:  )
@@ -138,10 +138,9 @@
     )
   )
 
-  ;; CHECK:      (func $uses (type $ref|$array|_=>_none) (param $array (ref $array))
-  ;; CHECK-NEXT:  (try $try
+  ;; CHECK:      (func $uses (type $3) (param $array (ref $array))
+  ;; CHECK-NEXT:  (try
   ;; CHECK-NEXT:   (do
-  ;; CHECK-NEXT:    (nop)
   ;; CHECK-NEXT:   )
   ;; CHECK-NEXT:   (catch $foo
   ;; CHECK-NEXT:    (drop
@@ -149,14 +148,29 @@
   ;; CHECK-NEXT:    )
   ;; CHECK-NEXT:   )
   ;; CHECK-NEXT:  )
-  ;; CHECK-NEXT:  (try $try0
+  ;; CHECK-NEXT:  (try
   ;; CHECK-NEXT:   (do
-  ;; CHECK-NEXT:    (nop)
   ;; CHECK-NEXT:   )
   ;; CHECK-NEXT:   (catch $bar
   ;; CHECK-NEXT:    (drop
   ;; CHECK-NEXT:     (pop i64)
   ;; CHECK-NEXT:    )
+  ;; CHECK-NEXT:   )
+  ;; CHECK-NEXT:  )
+  ;; CHECK-NEXT:  (drop
+  ;; CHECK-NEXT:   (block $catch (result i32)
+  ;; CHECK-NEXT:    (try_table (catch $foo $catch)
+  ;; CHECK-NEXT:     (nop)
+  ;; CHECK-NEXT:    )
+  ;; CHECK-NEXT:    (i32.const 0)
+  ;; CHECK-NEXT:   )
+  ;; CHECK-NEXT:  )
+  ;; CHECK-NEXT:  (drop
+  ;; CHECK-NEXT:   (block $catch0 (result i64)
+  ;; CHECK-NEXT:    (try_table (catch $bar $catch0)
+  ;; CHECK-NEXT:     (nop)
+  ;; CHECK-NEXT:    )
+  ;; CHECK-NEXT:    (i64.const 0)
   ;; CHECK-NEXT:   )
   ;; CHECK-NEXT:  )
   ;; CHECK-NEXT:  (drop
@@ -220,6 +234,22 @@
         )
       )
     )
+    (drop
+      (block $catch (result i32)
+        (try_table (catch $foo $catch)
+          (nop)
+        )
+        (i32.const 0)
+      )
+    )
+    (drop
+      (block $catch (result i64)
+        (try_table (catch $bar $catch)
+          (nop)
+        )
+        (i64.const 0)
+      )
+    )
 
     ;; Memories
     (drop
@@ -276,22 +306,21 @@
     (call $bar)
   )
 )
-;; CHECK:      (func $foo_3 (type $none_=>_none)
+;; CHECK:      (func $foo_3 (type $1)
 ;; CHECK-NEXT:  (drop
 ;; CHECK-NEXT:   (i32.const 3)
 ;; CHECK-NEXT:  )
 ;; CHECK-NEXT: )
 
-;; CHECK:      (func $other (type $none_=>_none)
+;; CHECK:      (func $other (type $1)
 ;; CHECK-NEXT:  (drop
 ;; CHECK-NEXT:   (i32.const 4)
 ;; CHECK-NEXT:  )
 ;; CHECK-NEXT: )
 
-;; CHECK:      (func $uses.second (type $ref|$array|_=>_none) (param $array (ref $array))
-;; CHECK-NEXT:  (try $try
+;; CHECK:      (func $uses.second (type $3) (param $array (ref $array))
+;; CHECK-NEXT:  (try
 ;; CHECK-NEXT:   (do
-;; CHECK-NEXT:    (nop)
 ;; CHECK-NEXT:   )
 ;; CHECK-NEXT:   (catch $foo_2
 ;; CHECK-NEXT:    (drop
@@ -299,14 +328,29 @@
 ;; CHECK-NEXT:    )
 ;; CHECK-NEXT:   )
 ;; CHECK-NEXT:  )
-;; CHECK-NEXT:  (try $try0
+;; CHECK-NEXT:  (try
 ;; CHECK-NEXT:   (do
-;; CHECK-NEXT:    (nop)
 ;; CHECK-NEXT:   )
 ;; CHECK-NEXT:   (catch $other
 ;; CHECK-NEXT:    (drop
 ;; CHECK-NEXT:     (pop f64)
 ;; CHECK-NEXT:    )
+;; CHECK-NEXT:   )
+;; CHECK-NEXT:  )
+;; CHECK-NEXT:  (drop
+;; CHECK-NEXT:   (block $catch (result f32)
+;; CHECK-NEXT:    (try_table (catch $foo_2 $catch)
+;; CHECK-NEXT:     (nop)
+;; CHECK-NEXT:    )
+;; CHECK-NEXT:    (f32.const 0)
+;; CHECK-NEXT:   )
+;; CHECK-NEXT:  )
+;; CHECK-NEXT:  (drop
+;; CHECK-NEXT:   (block $catch0 (result f64)
+;; CHECK-NEXT:    (try_table (catch $other $catch0)
+;; CHECK-NEXT:     (nop)
+;; CHECK-NEXT:    )
+;; CHECK-NEXT:    (f64.const 0)
 ;; CHECK-NEXT:   )
 ;; CHECK-NEXT:  )
 ;; CHECK-NEXT:  (drop

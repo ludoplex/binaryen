@@ -3,7 +3,7 @@
 
 #include "ir/stack-utils.h"
 #include "literal.h"
-#include "mixed_arena.h"
+#include "support/mixed_arena.h"
 #include "wasm-builder.h"
 #include "wasm-type.h"
 #include "wasm.h"
@@ -24,7 +24,7 @@ void test_remove_nops() {
       builder.makeNop(),
       builder.makeNop(),
     },
-    {Type::i32, Type::i64});
+    Type{Type::i32, Type::i64});
   std::cout << *block << '\n';
   StackUtils::removeNops(block);
   std::cout << *block << '\n';

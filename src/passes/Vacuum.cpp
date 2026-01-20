@@ -19,6 +19,7 @@
 //
 
 #include <ir/block-utils.h>
+#include <ir/branch-hints.h>
 #include <ir/drop.h>
 #include <ir/effects.h>
 #include <ir/iteration.h>
@@ -87,7 +88,7 @@ struct Vacuum : public WalkerPass<ExpressionStackWalker<Vacuum>> {
       // Some instructions have special handling in visit*, and we should do
       // nothing for them here.
       if (curr->is<Drop>() || curr->is<Block>() || curr->is<If>() ||
-          curr->is<Loop>() || curr->is<Try>()) {
+          curr->is<Loop>() || curr->is<Try>() || curr->is<TryTable>()) {
         return curr;
       }
       // Check if this expression itself has side effects, ignoring children.
@@ -158,15 +159,16 @@ struct Vacuum : public WalkerPass<ExpressionStackWalker<Vacuum>> {
           continue;
         }
 
-        // Check if we may no longer be heading to a trap. Two situations count
-        // here: Control flow might branch, or we might call (since a call might
-        // reach an import; see notes on that in pass.h:trapsNeverHappen).
+        // Check if we may no longer be heading to a trap. We can only optimize
+        // if the trap will actually be reached. Two situations can prevent that
+        // here: Control flow might branch away, or we might hang (which can
+        // happen in a call or a loop).
         //
         // We also cannot remove a pop as it is necessary for structural
         // reasons.
         EffectAnalyzer effects(getPassOptions(), *getModule(), list[i]);
         if (effects.transfersControlFlow() || effects.calls ||
-            effects.danglingPop) {
+            effects.mayNotReturn || effects.danglingPop) {
           headingToTrap = false;
           continue;
         }
@@ -296,6 +298,7 @@ struct Vacuum : public WalkerPass<ExpressionStackWalker<Vacuum>> {
         curr->ifFalse = nullptr;
         curr->condition =
           Builder(*getModule()).makeUnary(EqZInt32, curr->condition);
+        BranchHints::flip(curr, getFunction());
       } else if (curr->ifTrue->is<Drop>() && curr->ifFalse->is<Drop>()) {
         // instead of dropping both sides, drop the if, if they are the same
         // type
@@ -431,6 +434,15 @@ struct Vacuum : public WalkerPass<ExpressionStackWalker<Vacuum>> {
         !EffectAnalyzer(getPassOptions(), *getModule(), curr)
            .hasUnremovableSideEffects()) {
       ExpressionManipulator::nop(curr);
+    }
+  }
+
+  void visitTryTable(TryTable* curr) {
+    // If try_table's body does not throw, the whole try_table can be replaced
+    // with the try_table's body.
+    if (!EffectAnalyzer(getPassOptions(), *getModule(), curr->body).throws()) {
+      replaceCurrent(curr->body);
+      return;
     }
   }
 

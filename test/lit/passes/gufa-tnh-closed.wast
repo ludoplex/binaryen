@@ -12,7 +12,7 @@
     (type $B (func))
   )
 
-  ;; CHECK:      (type $funcref_=>_none (func (param funcref)))
+  ;; CHECK:      (type $2 (func (param funcref)))
 
   ;; CHECK:      (export "out" (func $caller))
 
@@ -37,8 +37,8 @@
     )
   )
 
-  ;; CHECK:      (func $caller (type $funcref_=>_none) (param $x funcref)
-  ;; CHECK-NEXT:  (block ;; (replaces something unreachable we can't emit)
+  ;; CHECK:      (func $caller (type $2) (param $x funcref)
+  ;; CHECK-NEXT:  (block ;; (replaces unreachable CallRef we can't emit)
   ;; CHECK-NEXT:   (drop
   ;; CHECK-NEXT:    (unreachable)
   ;; CHECK-NEXT:   )
@@ -48,7 +48,7 @@
   (func $caller (export "out") (param $x funcref)
     ;; This call must trap: the only function of the right type will trap.
     (call_ref $A
-      (ref.cast $A
+      (ref.cast (ref $A)
         (local.get $x)
       )
     )
@@ -58,7 +58,7 @@
 ;; As above, but now there are no functions of type $A at all.
 (module
   (rec
-    ;; CHECK:      (type $funcref_=>_none (func (param funcref)))
+    ;; CHECK:      (type $0 (func (param funcref)))
 
     ;; CHECK:      (rec
     ;; CHECK-NEXT:  (type $A (func))
@@ -82,8 +82,8 @@
     )
   )
 
-  ;; CHECK:      (func $caller (type $funcref_=>_none) (param $x funcref)
-  ;; CHECK-NEXT:  (block ;; (replaces something unreachable we can't emit)
+  ;; CHECK:      (func $caller (type $0) (param $x funcref)
+  ;; CHECK-NEXT:  (block ;; (replaces unreachable CallRef we can't emit)
   ;; CHECK-NEXT:   (drop
   ;; CHECK-NEXT:    (unreachable)
   ;; CHECK-NEXT:   )
@@ -93,7 +93,7 @@
   (func $caller (export "out") (param $x funcref)
     ;; No function exists of type $A, so this will trap.
     (call_ref $A
-      (ref.cast $A
+      (ref.cast (ref $A)
         (local.get $x)
       )
     )
@@ -105,7 +105,7 @@
   ;; CHECK:      (type $A (func))
   (type $A (func))
 
-  ;; CHECK:      (type $funcref_=>_none (func (param funcref)))
+  ;; CHECK:      (type $1 (func (param funcref)))
 
   ;; CHECK:      (elem declare func $possible)
 
@@ -122,7 +122,7 @@
     )
   )
 
-  ;; CHECK:      (func $caller (type $funcref_=>_none) (param $x funcref)
+  ;; CHECK:      (func $caller (type $1) (param $x funcref)
   ;; CHECK-NEXT:  (call_ref $A
   ;; CHECK-NEXT:   (ref.func $possible)
   ;; CHECK-NEXT:  )
@@ -130,7 +130,7 @@
   (func $caller (export "out") (param $x funcref)
     ;; This must call $possible.
     (call_ref $A
-      (ref.cast $A
+      (ref.cast (ref $A)
         (local.get $x)
       )
     )
@@ -142,7 +142,7 @@
   ;; CHECK:      (type $A (func))
   (type $A (func))
 
-  ;; CHECK:      (type $funcref_=>_none (func (param funcref)))
+  ;; CHECK:      (type $1 (func (param funcref)))
 
   ;; CHECK:      (elem declare func $possible)
 
@@ -166,7 +166,7 @@
     (unreachable)
   )
 
-  ;; CHECK:      (func $caller (type $funcref_=>_none) (param $x funcref)
+  ;; CHECK:      (func $caller (type $1) (param $x funcref)
   ;; CHECK-NEXT:  (call_ref $A
   ;; CHECK-NEXT:   (ref.func $possible)
   ;; CHECK-NEXT:  )
@@ -174,7 +174,7 @@
   (func $caller (export "out") (param $x funcref)
     ;; This must call $possible, as the trapping function won't be called.
     (call_ref $A
-      (ref.cast $A
+      (ref.cast (ref $A)
         (local.get $x)
       )
     )
@@ -186,7 +186,7 @@
   ;; CHECK:      (type $A (func))
   (type $A (func))
 
-  ;; CHECK:      (type $funcref_=>_none (func (param funcref)))
+  ;; CHECK:      (type $1 (func (param funcref)))
 
   ;; CHECK:      (export "out" (func $caller))
 
@@ -212,16 +212,16 @@
     )
   )
 
-  ;; CHECK:      (func $caller (type $funcref_=>_none) (param $x funcref)
+  ;; CHECK:      (func $caller (type $1) (param $x funcref)
   ;; CHECK-NEXT:  (call_ref $A
-  ;; CHECK-NEXT:   (ref.cast $A
+  ;; CHECK-NEXT:   (ref.cast (ref $A)
   ;; CHECK-NEXT:    (local.get $x)
   ;; CHECK-NEXT:   )
   ;; CHECK-NEXT:  )
   ;; CHECK-NEXT: )
   (func $caller (export "out") (param $x funcref)
     (call_ref $A
-      (ref.cast $A
+      (ref.cast (ref $A)
         (local.get $x)
       )
     )
@@ -231,13 +231,13 @@
 ;; As above, but now the second possible function is of a subtype. We still
 ;; cannot optimize a call to the parent, but we can for the child.
 (module
-  ;; CHECK:      (type $A (func))
-  (type $A (func))
+  ;; CHECK:      (type $A (sub (func)))
+  (type $A (sub (func)))
 
   ;; CHECK:      (type $B (sub $A (func)))
   (type $B (sub $A (func)))
 
-  ;; CHECK:      (type $funcref_=>_none (func (param funcref)))
+  ;; CHECK:      (type $2 (func (param funcref)))
 
   ;; CHECK:      (elem declare func $possible-2)
 
@@ -265,9 +265,9 @@
     )
   )
 
-  ;; CHECK:      (func $caller (type $funcref_=>_none) (param $x funcref)
+  ;; CHECK:      (func $caller (type $2) (param $x funcref)
   ;; CHECK-NEXT:  (call_ref $A
-  ;; CHECK-NEXT:   (ref.cast $A
+  ;; CHECK-NEXT:   (ref.cast (ref $A)
   ;; CHECK-NEXT:    (local.get $x)
   ;; CHECK-NEXT:   )
   ;; CHECK-NEXT:  )
@@ -279,13 +279,13 @@
     ;; A has one function, but it has a subtype with another, so we cannot
     ;; optimize
     (call_ref $A
-      (ref.cast $A
+      (ref.cast (ref $A)
         (local.get $x)
       )
     )
     ;; The second call can be optimized, as B has just one function.
     (call_ref $B
-      (ref.cast $B
+      (ref.cast (ref $B)
         (local.get $x)
       )
     )
@@ -296,22 +296,22 @@
 (module
   (rec
     ;; CHECK:      (rec
-    ;; CHECK-NEXT:  (type $X (struct ))
-    (type $X (struct))
+    ;; CHECK-NEXT:  (type $X (sub (struct)))
+    (type $X (sub (struct)))
 
-    ;; CHECK:       (type $Y1 (sub $X (struct )))
+    ;; CHECK:       (type $Y1 (sub $X (struct)))
     (type $Y1 (sub $X (struct)))
 
-    ;; CHECK:       (type $Y2 (sub $X (struct )))
+    ;; CHECK:       (type $Y2 (sub $X (struct)))
     (type $Y2 (sub $X (struct)))
 
     ;; CHECK:       (type $A (func (param anyref)))
     (type $A (func (param anyref)))
   )
 
-  ;; CHECK:      (type $funcref_funcref_funcref_structref_=>_none (func (param funcref funcref funcref structref)))
+  ;; CHECK:      (type $4 (func (param funcref funcref funcref structref)))
 
-  ;; CHECK:      (type $none_=>_none (func))
+  ;; CHECK:      (type $5 (func))
 
   ;; CHECK:      (elem declare func $possible-Y1 $possible-Y2)
 
@@ -321,14 +321,14 @@
 
   ;; CHECK:      (func $possible-Y1 (type $A) (param $ref anyref)
   ;; CHECK-NEXT:  (drop
-  ;; CHECK-NEXT:   (ref.cast $Y1
+  ;; CHECK-NEXT:   (ref.cast (ref $Y1)
   ;; CHECK-NEXT:    (local.get $ref)
   ;; CHECK-NEXT:   )
   ;; CHECK-NEXT:  )
   ;; CHECK-NEXT: )
   (func $possible-Y1 (type $A) (param $ref anyref)
     (drop
-      (ref.cast $Y1
+      (ref.cast (ref $Y1)
         (local.get $ref)
       )
     )
@@ -336,20 +336,20 @@
 
   ;; CHECK:      (func $possible-Y2 (type $A) (param $ref anyref)
   ;; CHECK-NEXT:  (drop
-  ;; CHECK-NEXT:   (ref.cast $Y2
+  ;; CHECK-NEXT:   (ref.cast (ref $Y2)
   ;; CHECK-NEXT:    (local.get $ref)
   ;; CHECK-NEXT:   )
   ;; CHECK-NEXT:  )
   ;; CHECK-NEXT: )
   (func $possible-Y2 (type $A) (param $ref anyref)
     (drop
-      (ref.cast $Y2
+      (ref.cast (ref $Y2)
         (local.get $ref)
       )
     )
   )
 
-  ;; CHECK:      (func $caller (type $funcref_funcref_funcref_structref_=>_none) (param $func1 funcref) (param $func2 funcref) (param $func3 funcref) (param $struct structref)
+  ;; CHECK:      (func $caller (type $4) (param $func1 funcref) (param $func2 funcref) (param $func3 funcref) (param $struct structref)
   ;; CHECK-NEXT:  (call_ref $A
   ;; CHECK-NEXT:   (struct.new_default $Y1)
   ;; CHECK-NEXT:   (ref.func $possible-Y1)
@@ -360,7 +360,7 @@
   ;; CHECK-NEXT:  )
   ;; CHECK-NEXT:  (call_ref $A
   ;; CHECK-NEXT:   (local.get $struct)
-  ;; CHECK-NEXT:   (ref.cast $A
+  ;; CHECK-NEXT:   (ref.cast (ref $A)
   ;; CHECK-NEXT:    (local.get $func3)
   ;; CHECK-NEXT:   )
   ;; CHECK-NEXT:  )
@@ -375,27 +375,27 @@
     ;; calling possible-Y1.
     (call_ref $A
       (struct.new $Y1)
-      (ref.cast $A
+      (ref.cast (ref $A)
         (local.get $func1)
       )
     )
     ;; Inverse of the above: we must call possible-Y2.
     (call_ref $A
       (struct.new $Y2)
-      (ref.cast $A
+      (ref.cast (ref $A)
         (local.get $func2)
       )
     )
     ;; This can call either one, and cannot be optimized.
     (call_ref $A
       (local.get $struct)
-      (ref.cast $A
+      (ref.cast (ref $A)
         (local.get $func3)
       )
     )
   )
 
-  ;; CHECK:      (func $reffer (type $none_=>_none)
+  ;; CHECK:      (func $reffer (type $5)
   ;; CHECK-NEXT:  (drop
   ;; CHECK-NEXT:   (ref.func $possible-Y1)
   ;; CHECK-NEXT:  )
@@ -421,24 +421,24 @@
 (module
   (rec
     ;; CHECK:      (rec
-    ;; CHECK-NEXT:  (type $X (struct ))
-    (type $X (struct))
+    ;; CHECK-NEXT:  (type $X (sub (struct)))
+    (type $X (sub (struct)))
 
-    ;; CHECK:       (type $Y1 (sub $X (struct )))
+    ;; CHECK:       (type $Y1 (sub $X (struct)))
     (type $Y1 (sub $X (struct)))
 
-    ;; CHECK:       (type $Y2 (sub $X (struct )))
+    ;; CHECK:       (type $Y2 (sub $X (struct)))
     (type $Y2 (sub $X (struct)))
 
     ;; CHECK:       (type $A (func (param anyref anyref)))
     (type $A (func (param anyref) (param anyref)))
   )
 
-  ;; CHECK:      (type $funcref_funcref_funcref_funcref_=>_none (func (param funcref funcref funcref funcref)))
+  ;; CHECK:      (type $4 (func (param funcref funcref funcref funcref)))
 
-  ;; CHECK:      (type $funcref_funcref_funcref_funcref_structref_=>_none (func (param funcref funcref funcref funcref structref)))
+  ;; CHECK:      (type $5 (func (param funcref funcref funcref funcref structref)))
 
-  ;; CHECK:      (type $none_=>_none (func))
+  ;; CHECK:      (type $6 (func))
 
   ;; CHECK:      (elem declare func $possible-Y1 $possible-Y2)
 
@@ -450,14 +450,14 @@
 
   ;; CHECK:      (func $possible-Y1 (type $A) (param $ref anyref) (param $ref2 anyref)
   ;; CHECK-NEXT:  (drop
-  ;; CHECK-NEXT:   (ref.cast $Y1
+  ;; CHECK-NEXT:   (ref.cast (ref $Y1)
   ;; CHECK-NEXT:    (local.get $ref)
   ;; CHECK-NEXT:   )
   ;; CHECK-NEXT:  )
   ;; CHECK-NEXT: )
   (func $possible-Y1 (type $A) (param $ref anyref) (param $ref2 anyref)
     (drop
-      (ref.cast $Y1
+      (ref.cast (ref $Y1)
         (local.get $ref)
       )
     )
@@ -465,20 +465,20 @@
 
   ;; CHECK:      (func $possible-Y2 (type $A) (param $ref anyref) (param $ref2 anyref)
   ;; CHECK-NEXT:  (drop
-  ;; CHECK-NEXT:   (ref.cast $Y2
+  ;; CHECK-NEXT:   (ref.cast (ref $Y2)
   ;; CHECK-NEXT:    (local.get $ref2)
   ;; CHECK-NEXT:   )
   ;; CHECK-NEXT:  )
   ;; CHECK-NEXT: )
   (func $possible-Y2 (type $A) (param $ref anyref) (param $ref2 anyref)
     (drop
-      (ref.cast $Y2
+      (ref.cast (ref $Y2)
         (local.get $ref2) ;; this changed from ref to ref2.
       )
     )
   )
 
-  ;; CHECK:      (func $caller1 (type $funcref_funcref_funcref_funcref_=>_none) (param $func1 funcref) (param $func2 funcref) (param $func3 funcref) (param $func4 funcref)
+  ;; CHECK:      (func $caller1 (type $4) (param $func1 funcref) (param $func2 funcref) (param $func3 funcref) (param $func4 funcref)
   ;; CHECK-NEXT:  (call_ref $A
   ;; CHECK-NEXT:   (struct.new_default $Y1)
   ;; CHECK-NEXT:   (struct.new_default $Y1)
@@ -492,11 +492,11 @@
   ;; CHECK-NEXT:  (call_ref $A
   ;; CHECK-NEXT:   (struct.new_default $Y1)
   ;; CHECK-NEXT:   (struct.new_default $Y2)
-  ;; CHECK-NEXT:   (ref.cast $A
+  ;; CHECK-NEXT:   (ref.cast (ref $A)
   ;; CHECK-NEXT:    (local.get $func3)
   ;; CHECK-NEXT:   )
   ;; CHECK-NEXT:  )
-  ;; CHECK-NEXT:  (block ;; (replaces something unreachable we can't emit)
+  ;; CHECK-NEXT:  (block ;; (replaces unreachable CallRef we can't emit)
   ;; CHECK-NEXT:   (drop
   ;; CHECK-NEXT:    (struct.new_default $Y2)
   ;; CHECK-NEXT:   )
@@ -520,7 +520,7 @@
     (call_ref $A
       (struct.new $Y1)
       (struct.new $Y1)
-      (ref.cast $A
+      (ref.cast (ref $A)
         (local.get $func1)
       )
     )
@@ -529,7 +529,7 @@
     (call_ref $A
       (struct.new $Y2)
       (struct.new $Y2)
-      (ref.cast $A
+      (ref.cast (ref $A)
         (local.get $func2)
       )
     )
@@ -538,7 +538,7 @@
     (call_ref $A
       (struct.new $Y1)
       (struct.new $Y2)
-      (ref.cast $A
+      (ref.cast (ref $A)
         (local.get $func3)
       )
     )
@@ -546,24 +546,24 @@
     (call_ref $A
       (struct.new $Y2)
       (struct.new $Y1)
-      (ref.cast $A
+      (ref.cast (ref $A)
         (local.get $func4)
       )
     )
   )
 
-  ;; CHECK:      (func $caller2 (type $funcref_funcref_funcref_funcref_structref_=>_none) (param $func1 funcref) (param $func2 funcref) (param $func3 funcref) (param $func4 funcref) (param $struct structref)
+  ;; CHECK:      (func $caller2 (type $5) (param $func1 funcref) (param $func2 funcref) (param $func3 funcref) (param $func4 funcref) (param $struct structref)
   ;; CHECK-NEXT:  (call_ref $A
   ;; CHECK-NEXT:   (local.get $struct)
   ;; CHECK-NEXT:   (local.get $struct)
-  ;; CHECK-NEXT:   (ref.cast $A
+  ;; CHECK-NEXT:   (ref.cast (ref $A)
   ;; CHECK-NEXT:    (local.get $func3)
   ;; CHECK-NEXT:   )
   ;; CHECK-NEXT:  )
   ;; CHECK-NEXT:  (call_ref $A
   ;; CHECK-NEXT:   (struct.new_default $Y1)
   ;; CHECK-NEXT:   (local.get $struct)
-  ;; CHECK-NEXT:   (ref.cast $A
+  ;; CHECK-NEXT:   (ref.cast (ref $A)
   ;; CHECK-NEXT:    (local.get $func3)
   ;; CHECK-NEXT:   )
   ;; CHECK-NEXT:  )
@@ -580,7 +580,7 @@
   ;; CHECK-NEXT:  (call_ref $A
   ;; CHECK-NEXT:   (local.get $struct)
   ;; CHECK-NEXT:   (struct.new_default $Y2)
-  ;; CHECK-NEXT:   (ref.cast $A
+  ;; CHECK-NEXT:   (ref.cast (ref $A)
   ;; CHECK-NEXT:    (local.get $func3)
   ;; CHECK-NEXT:   )
   ;; CHECK-NEXT:  )
@@ -597,7 +597,7 @@
     (call_ref $A
       (local.get $struct)
       (local.get $struct)
-      (ref.cast $A
+      (ref.cast (ref $A)
         (local.get $func3)
       )
     )
@@ -605,7 +605,7 @@
     (call_ref $A
       (struct.new $Y1)
       (local.get $struct)
-      (ref.cast $A
+      (ref.cast (ref $A)
         (local.get $func3)
       )
     )
@@ -613,7 +613,7 @@
     (call_ref $A
       (struct.new $Y2)
       (local.get $struct)
-      (ref.cast $A
+      (ref.cast (ref $A)
         (local.get $func3)
       )
     )
@@ -621,7 +621,7 @@
     (call_ref $A
       (local.get $struct)
       (struct.new $Y1)
-      (ref.cast $A
+      (ref.cast (ref $A)
         (local.get $func3)
       )
     )
@@ -629,13 +629,13 @@
     (call_ref $A
       (local.get $struct)
       (struct.new $Y2)
-      (ref.cast $A
+      (ref.cast (ref $A)
         (local.get $func3)
       )
     )
   )
 
-  ;; CHECK:      (func $reffer (type $none_=>_none)
+  ;; CHECK:      (func $reffer (type $6)
   ;; CHECK-NEXT:  (drop
   ;; CHECK-NEXT:   (ref.func $possible-Y1)
   ;; CHECK-NEXT:  )
@@ -659,22 +659,22 @@
 (module
   (rec
     ;; CHECK:      (rec
-    ;; CHECK-NEXT:  (type $X (struct ))
-    (type $X (struct))
+    ;; CHECK-NEXT:  (type $X (sub (struct)))
+    (type $X (sub (struct)))
 
-    ;; CHECK:       (type $Y1 (sub $X (struct )))
+    ;; CHECK:       (type $Y1 (sub $X (struct)))
     (type $Y1 (sub $X (struct)))
 
-    ;; CHECK:       (type $Y2 (sub $X (struct )))
+    ;; CHECK:       (type $Y2 (sub $X (struct)))
     (type $Y2 (sub $X (struct)))
 
     ;; CHECK:       (type $A (func (param anyref anyref anyref anyref anyref anyref)))
     (type $A (func (param anyref) (param anyref) (param anyref) (param anyref) (param anyref) (param anyref)))
   )
 
-  ;; CHECK:      (type $anyref_anyref_anyref_anyref_anyref_anyref_funcref_=>_none (func (param anyref anyref anyref anyref anyref anyref funcref)))
+  ;; CHECK:      (type $4 (func (param anyref anyref anyref anyref anyref anyref funcref)))
 
-  ;; CHECK:      (type $none_=>_none (func))
+  ;; CHECK:      (type $5 (func))
 
   ;; CHECK:      (elem declare func $possible-1 $possible-2)
 
@@ -684,54 +684,54 @@
 
   ;; CHECK:      (func $possible-1 (type $A) (param $ref anyref) (param $ref2 anyref) (param $ref3 anyref) (param $ref4 anyref) (param $ref5 anyref) (param $ref6 anyref)
   ;; CHECK-NEXT:  (drop
-  ;; CHECK-NEXT:   (ref.cast $X
+  ;; CHECK-NEXT:   (ref.cast (ref $X)
   ;; CHECK-NEXT:    (local.get $ref)
   ;; CHECK-NEXT:   )
   ;; CHECK-NEXT:  )
   ;; CHECK-NEXT:  (drop
-  ;; CHECK-NEXT:   (ref.cast $X
+  ;; CHECK-NEXT:   (ref.cast (ref $X)
   ;; CHECK-NEXT:    (local.get $ref2)
   ;; CHECK-NEXT:   )
   ;; CHECK-NEXT:  )
   ;; CHECK-NEXT:  (drop
-  ;; CHECK-NEXT:   (ref.cast $X
+  ;; CHECK-NEXT:   (ref.cast (ref $X)
   ;; CHECK-NEXT:    (local.get $ref4)
   ;; CHECK-NEXT:   )
   ;; CHECK-NEXT:  )
   ;; CHECK-NEXT:  (drop
-  ;; CHECK-NEXT:   (ref.cast $Y1
+  ;; CHECK-NEXT:   (ref.cast (ref $Y1)
   ;; CHECK-NEXT:    (local.get $ref5)
   ;; CHECK-NEXT:   )
   ;; CHECK-NEXT:  )
   ;; CHECK-NEXT:  (drop
-  ;; CHECK-NEXT:   (ref.cast $Y1
+  ;; CHECK-NEXT:   (ref.cast (ref $Y1)
   ;; CHECK-NEXT:    (local.get $ref6)
   ;; CHECK-NEXT:   )
   ;; CHECK-NEXT:  )
   ;; CHECK-NEXT: )
   (func $possible-1 (type $A) (param $ref anyref) (param $ref2 anyref) (param $ref3 anyref) (param $ref4 anyref) (param $ref5 anyref) (param $ref6 anyref)
     (drop
-      (ref.cast $X
+      (ref.cast (ref $X)
         (local.get $ref)
       )
     )
     (drop
-      (ref.cast $X
+      (ref.cast (ref $X)
         (local.get $ref2)
       )
     )
     (drop
-      (ref.cast $X
+      (ref.cast (ref $X)
         (local.get $ref4)
       )
     )
     (drop
-      (ref.cast $Y1
+      (ref.cast (ref $Y1)
         (local.get $ref5)
       )
     )
     (drop
-      (ref.cast $Y1
+      (ref.cast (ref $Y1)
         (local.get $ref6)
       )
     )
@@ -739,80 +739,80 @@
 
   ;; CHECK:      (func $possible-2 (type $A) (param $ref anyref) (param $ref2 anyref) (param $ref3 anyref) (param $ref4 anyref) (param $ref5 anyref) (param $ref6 anyref)
   ;; CHECK-NEXT:  (drop
-  ;; CHECK-NEXT:   (ref.cast $X
+  ;; CHECK-NEXT:   (ref.cast (ref $X)
   ;; CHECK-NEXT:    (local.get $ref)
   ;; CHECK-NEXT:   )
   ;; CHECK-NEXT:  )
   ;; CHECK-NEXT:  (drop
-  ;; CHECK-NEXT:   (ref.cast $X
+  ;; CHECK-NEXT:   (ref.cast (ref $X)
   ;; CHECK-NEXT:    (local.get $ref3)
   ;; CHECK-NEXT:   )
   ;; CHECK-NEXT:  )
   ;; CHECK-NEXT:  (drop
-  ;; CHECK-NEXT:   (ref.cast $Y1
+  ;; CHECK-NEXT:   (ref.cast (ref $Y1)
   ;; CHECK-NEXT:    (local.get $ref4)
   ;; CHECK-NEXT:   )
   ;; CHECK-NEXT:  )
   ;; CHECK-NEXT:  (drop
-  ;; CHECK-NEXT:   (ref.cast $X
+  ;; CHECK-NEXT:   (ref.cast (ref $X)
   ;; CHECK-NEXT:    (local.get $ref5)
   ;; CHECK-NEXT:   )
   ;; CHECK-NEXT:  )
   ;; CHECK-NEXT:  (drop
-  ;; CHECK-NEXT:   (ref.cast $Y2
+  ;; CHECK-NEXT:   (ref.cast (ref $Y2)
   ;; CHECK-NEXT:    (local.get $ref6)
   ;; CHECK-NEXT:   )
   ;; CHECK-NEXT:  )
   ;; CHECK-NEXT: )
   (func $possible-2 (type $A) (param $ref anyref) (param $ref2 anyref) (param $ref3 anyref) (param $ref4 anyref) (param $ref5 anyref) (param $ref6 anyref)
     (drop
-      (ref.cast $X
+      (ref.cast (ref $X)
         (local.get $ref)
       )
     )
     (drop
-      (ref.cast $X
+      (ref.cast (ref $X)
         (local.get $ref3)
       )
     )
     (drop
-      (ref.cast $Y1
+      (ref.cast (ref $Y1)
         (local.get $ref4)
       )
     )
     (drop
-      (ref.cast $X
+      (ref.cast (ref $X)
         (local.get $ref5)
       )
     )
     (drop
-      (ref.cast $Y2
+      (ref.cast (ref $Y2)
         (local.get $ref6)
       )
     )
   )
 
-  ;; CHECK:      (func $caller1 (type $anyref_anyref_anyref_anyref_anyref_anyref_funcref_=>_none) (param $ref1 anyref) (param $ref2 anyref) (param $ref3 anyref) (param $ref4 anyref) (param $ref5 anyref) (param $ref6 anyref) (param $func funcref)
+  ;; CHECK:      (func $caller1 (type $4) (param $ref1 anyref) (param $ref2 anyref) (param $ref3 anyref) (param $ref4 anyref) (param $ref5 anyref) (param $ref6 anyref) (param $func funcref)
   ;; CHECK-NEXT:  (call_ref $A
-  ;; CHECK-NEXT:   (ref.cast $X
+  ;; CHECK-NEXT:   (ref.cast (ref $X)
   ;; CHECK-NEXT:    (local.get $ref1)
   ;; CHECK-NEXT:   )
-  ;; CHECK-NEXT:   (ref.cast null any
+  ;; CHECK-NEXT:   (ref.cast anyref
   ;; CHECK-NEXT:    (local.get $ref2)
   ;; CHECK-NEXT:   )
-  ;; CHECK-NEXT:   (ref.cast null any
+  ;; CHECK-NEXT:   (ref.cast anyref
   ;; CHECK-NEXT:    (local.get $ref3)
   ;; CHECK-NEXT:   )
-  ;; CHECK-NEXT:   (ref.cast $X
+  ;; CHECK-NEXT:   (ref.cast (ref $X)
   ;; CHECK-NEXT:    (local.get $ref4)
   ;; CHECK-NEXT:   )
-  ;; CHECK-NEXT:   (ref.cast $X
+  ;; CHECK-NEXT:   (ref.cast (ref $X)
   ;; CHECK-NEXT:    (local.get $ref5)
   ;; CHECK-NEXT:   )
-  ;; CHECK-NEXT:   (ref.cast $X
+  ;; CHECK-NEXT:   (ref.cast (ref $X)
   ;; CHECK-NEXT:    (local.get $ref6)
   ;; CHECK-NEXT:   )
-  ;; CHECK-NEXT:   (ref.cast $A
+  ;; CHECK-NEXT:   (ref.cast (ref $A)
   ;; CHECK-NEXT:    (local.get $func)
   ;; CHECK-NEXT:   )
   ;; CHECK-NEXT:  )
@@ -831,36 +831,36 @@
     ;; on the call targets.
     (call_ref $A
       ;; The first param is cast to $X in both targets, so we can apply that.
-      (ref.cast null any
+      (ref.cast anyref
         (local.get $ref1)
       )
       ;; The second and third are cast to $X just in one of them, so we do
       ;; nothing.
-      (ref.cast null any
+      (ref.cast anyref
         (local.get $ref2)
       )
-      (ref.cast null any
+      (ref.cast anyref
         (local.get $ref3)
       )
       ;; The fourth and fifth are cast to $X and $Y1, so we can apply the LUB,
       ;; which is $X.
-      (ref.cast null any
+      (ref.cast anyref
         (local.get $ref4)
       )
-      (ref.cast null any
+      (ref.cast anyref
         (local.get $ref5)
       )
       ;; The last is cast to $Y1 and $Y2, and the LUB is $X.
-      (ref.cast null any
+      (ref.cast anyref
         (local.get $ref6)
       )
-      (ref.cast $A
+      (ref.cast (ref $A)
         (local.get $func)
       )
     )
   )
 
-  ;; CHECK:      (func $reffer (type $none_=>_none)
+  ;; CHECK:      (func $reffer (type $5)
   ;; CHECK-NEXT:  (drop
   ;; CHECK-NEXT:   (ref.func $possible-1)
   ;; CHECK-NEXT:  )
@@ -885,22 +885,22 @@
 (module
   (rec
     ;; CHECK:      (rec
-    ;; CHECK-NEXT:  (type $X (struct ))
-    (type $X (struct))
+    ;; CHECK-NEXT:  (type $X (sub (struct)))
+    (type $X (sub (struct)))
 
-    ;; CHECK:       (type $Y1 (sub $X (struct )))
+    ;; CHECK:       (type $Y1 (sub $X (struct)))
     (type $Y1 (sub $X (struct)))
 
-    ;; CHECK:       (type $Y2 (sub $X (struct )))
+    ;; CHECK:       (type $Y2 (sub $X (struct)))
     (type $Y2 (sub $X (struct)))
 
     ;; CHECK:       (type $A (func (param (ref null $X) (ref null $X) (ref null $X))))
     (type $A (func (param (ref null $X)) (param (ref null $X)) (param (ref null $X))))
   )
 
-  ;; CHECK:      (type $anyref_anyref_anyref_anyref_anyref_anyref_funcref_=>_none (func (param anyref anyref anyref anyref anyref anyref funcref)))
+  ;; CHECK:      (type $4 (func (param anyref anyref anyref anyref anyref anyref funcref)))
 
-  ;; CHECK:      (type $none_=>_none (func))
+  ;; CHECK:      (type $5 (func))
 
   ;; CHECK:      (elem declare func $possible-1 $possible-2)
 
@@ -910,24 +910,24 @@
 
   ;; CHECK:      (func $possible-1 (type $A) (param $ref (ref null $X)) (param $ref2 (ref null $X)) (param $ref3 (ref null $X))
   ;; CHECK-NEXT:  (drop
-  ;; CHECK-NEXT:   (ref.cast $Y1
+  ;; CHECK-NEXT:   (ref.cast (ref $Y1)
   ;; CHECK-NEXT:    (local.get $ref2)
   ;; CHECK-NEXT:   )
   ;; CHECK-NEXT:  )
   ;; CHECK-NEXT:  (drop
-  ;; CHECK-NEXT:   (ref.cast $Y1
+  ;; CHECK-NEXT:   (ref.cast (ref $Y1)
   ;; CHECK-NEXT:    (local.get $ref3)
   ;; CHECK-NEXT:   )
   ;; CHECK-NEXT:  )
   ;; CHECK-NEXT: )
   (func $possible-1 (type $A) (param $ref (ref null $X)) (param $ref2 (ref null $X)) (param $ref3 (ref null $X))
     (drop
-      (ref.cast $Y1
+      (ref.cast (ref $Y1)
         (local.get $ref2)
       )
     )
     (drop
-      (ref.cast $Y1
+      (ref.cast (ref $Y1)
         (local.get $ref3)
       )
     )
@@ -935,51 +935,51 @@
 
   ;; CHECK:      (func $possible-2 (type $A) (param $ref (ref null $X)) (param $ref2 (ref null $X)) (param $ref3 (ref null $X))
   ;; CHECK-NEXT:  (drop
-  ;; CHECK-NEXT:   (ref.cast $Y1
+  ;; CHECK-NEXT:   (ref.cast (ref $Y1)
   ;; CHECK-NEXT:    (local.get $ref)
   ;; CHECK-NEXT:   )
   ;; CHECK-NEXT:  )
   ;; CHECK-NEXT:  (drop
-  ;; CHECK-NEXT:   (ref.cast $X
+  ;; CHECK-NEXT:   (ref.cast (ref $X)
   ;; CHECK-NEXT:    (local.get $ref2)
   ;; CHECK-NEXT:   )
   ;; CHECK-NEXT:  )
   ;; CHECK-NEXT:  (drop
-  ;; CHECK-NEXT:   (ref.cast $Y1
+  ;; CHECK-NEXT:   (ref.cast (ref $Y1)
   ;; CHECK-NEXT:    (local.get $ref3)
   ;; CHECK-NEXT:   )
   ;; CHECK-NEXT:  )
   ;; CHECK-NEXT: )
   (func $possible-2 (type $A) (param $ref (ref null $X)) (param $ref2 (ref null $X)) (param $ref3 (ref null $X))
     (drop
-      (ref.cast $Y1
+      (ref.cast (ref $Y1)
         (local.get $ref)
       )
     )
     (drop
-      (ref.cast $X
+      (ref.cast (ref $X)
         (local.get $ref2)
       )
     )
     (drop
-      (ref.cast $Y1
+      (ref.cast (ref $Y1)
         (local.get $ref3)
       )
     )
   )
 
-  ;; CHECK:      (func $caller1 (type $anyref_anyref_anyref_anyref_anyref_anyref_funcref_=>_none) (param $ref1 anyref) (param $ref2 anyref) (param $ref3 anyref) (param $ref4 anyref) (param $ref5 anyref) (param $ref6 anyref) (param $func funcref)
+  ;; CHECK:      (func $caller1 (type $4) (param $ref1 anyref) (param $ref2 anyref) (param $ref3 anyref) (param $ref4 anyref) (param $ref5 anyref) (param $ref6 anyref) (param $func funcref)
   ;; CHECK-NEXT:  (call_ref $A
-  ;; CHECK-NEXT:   (ref.cast null $X
+  ;; CHECK-NEXT:   (ref.cast (ref null $X)
   ;; CHECK-NEXT:    (local.get $ref1)
   ;; CHECK-NEXT:   )
-  ;; CHECK-NEXT:   (ref.cast $X
+  ;; CHECK-NEXT:   (ref.cast (ref $X)
   ;; CHECK-NEXT:    (local.get $ref2)
   ;; CHECK-NEXT:   )
-  ;; CHECK-NEXT:   (ref.cast $Y1
+  ;; CHECK-NEXT:   (ref.cast (ref $Y1)
   ;; CHECK-NEXT:    (local.get $ref3)
   ;; CHECK-NEXT:   )
-  ;; CHECK-NEXT:   (ref.cast $A
+  ;; CHECK-NEXT:   (ref.cast (ref $A)
   ;; CHECK-NEXT:    (local.get $func)
   ;; CHECK-NEXT:   )
   ;; CHECK-NEXT:  )
@@ -998,25 +998,25 @@
     ;; on the call targets.
     (call_ref $A
       ;; The first is cast to $Y1 in only one target, so we can do nothing.
-      (ref.cast null $X
+      (ref.cast (ref null $X)
         (local.get $ref1)
       )
       ;; The second is cast to $X in one $Y1 in the other, so we can refine the
       ;; nullability at least.
-      (ref.cast null $X
+      (ref.cast (ref null $X)
         (local.get $ref2)
       )
       ;; The third parameter is cast to $Y1 in both, so we can optimize to that.
-      (ref.cast null $X
+      (ref.cast (ref null $X)
         (local.get $ref3)
       )
-      (ref.cast $A
+      (ref.cast (ref $A)
         (local.get $func)
       )
     )
   )
 
-  ;; CHECK:      (func $reffer (type $none_=>_none)
+  ;; CHECK:      (func $reffer (type $5)
   ;; CHECK-NEXT:  (drop
   ;; CHECK-NEXT:   (ref.func $possible-1)
   ;; CHECK-NEXT:  )
@@ -1041,39 +1041,39 @@
 (module
   (rec
     ;; CHECK:      (rec
-    ;; CHECK-NEXT:  (type $X (struct ))
-    (type $X (struct))
+    ;; CHECK-NEXT:  (type $X (sub (struct)))
+    (type $X (sub (struct)))
 
-    ;; CHECK:       (type $Y1 (sub $X (struct )))
+    ;; CHECK:       (type $Y1 (sub $X (struct)))
     (type $Y1 (sub $X (struct)))
 
-    ;; CHECK:       (type $Y2 (sub $X (struct )))
+    ;; CHECK:       (type $Y2 (sub $X (struct)))
     (type $Y2 (sub $X (struct)))
 
     ;; CHECK:       (type $A (func (param anyref)))
     (type $A (func (param anyref)))
   )
 
-  ;; CHECK:      (type $i32_=>_none (func (param i32)))
+  ;; CHECK:      (type $4 (func (param i32)))
 
   ;; CHECK:      (export "out" (func $caller))
 
   ;; CHECK:      (func $called (type $A) (param $ref anyref)
   ;; CHECK-NEXT:  (drop
-  ;; CHECK-NEXT:   (ref.cast null $Y1
+  ;; CHECK-NEXT:   (ref.cast (ref null (exact $Y1))
   ;; CHECK-NEXT:    (local.get $ref)
   ;; CHECK-NEXT:   )
   ;; CHECK-NEXT:  )
   ;; CHECK-NEXT: )
   (func $called (type $A) (param $ref anyref)
     (drop
-      (ref.cast null $Y1
+      (ref.cast (ref null $Y1)
         (local.get $ref)
       )
     )
   )
 
-  ;; CHECK:      (func $caller (type $i32_=>_none) (param $i i32)
+  ;; CHECK:      (func $caller (type $4) (param $i i32)
   ;; CHECK-NEXT:  (call $called
   ;; CHECK-NEXT:   (ref.null none)
   ;; CHECK-NEXT:  )
@@ -1081,7 +1081,7 @@
   ;; CHECK-NEXT:   (unreachable)
   ;; CHECK-NEXT:  )
   ;; CHECK-NEXT:  (call $called
-  ;; CHECK-NEXT:   (ref.cast $Y1
+  ;; CHECK-NEXT:   (ref.cast (ref (exact $Y1))
   ;; CHECK-NEXT:    (select (result (ref $X))
   ;; CHECK-NEXT:     (struct.new_default $Y1)
   ;; CHECK-NEXT:     (struct.new_default $Y2)
@@ -1114,7 +1114,7 @@
 
     ;; Only Y1 would succeed, so we can infer that the cast can be to $Y1.
     (call $called
-      (ref.cast $X
+      (ref.cast (ref $X)
         (select (result (ref $X))
           (struct.new $Y1)
           (struct.new $Y2)

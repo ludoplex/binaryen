@@ -2,11 +2,11 @@
 ;; RUN: wasm-opt %s --optimize-casts -all -S -o - | filecheck %s
 
 (module
-  ;; CHECK:      (type $A (struct ))
-  (type $A (struct_subtype data))
+  ;; CHECK:      (type $A (sub (struct)))
+  (type $A (sub (struct)))
 
-  ;; CHECK:      (type $B (sub $A (struct )))
-  (type $B (struct_subtype $A))
+  ;; CHECK:      (type $B (sub $A (struct)))
+  (type $B (sub $A (struct)))
 
   ;; CHECK:      (type $void (func))
 
@@ -18,7 +18,7 @@
   ;; CHECK:      (global $a (mut i32) (i32.const 0))
   (global $a (mut i32) (i32.const 0))
 
-  ;; CHECK:      (func $ref.as (type $ref?|$A|_=>_none) (param $x (ref null $A))
+  ;; CHECK:      (func $ref.as (type $8) (param $x (ref null $A))
   ;; CHECK-NEXT:  (local $1 (ref $A))
   ;; CHECK-NEXT:  (drop
   ;; CHECK-NEXT:   (local.tee $1
@@ -66,7 +66,7 @@
     )
   )
 
-  ;; CHECK:      (func $ref.as-no (type $ref|$A|_=>_none) (param $x (ref $A))
+  ;; CHECK:      (func $ref.as-no (type $6) (param $x (ref $A))
   ;; CHECK-NEXT:  (drop
   ;; CHECK-NEXT:   (local.get $x)
   ;; CHECK-NEXT:  )
@@ -108,11 +108,11 @@
     )
   )
 
-  ;; CHECK:      (func $ref.cast (type $ref|struct|_=>_none) (param $x (ref struct))
+  ;; CHECK:      (func $ref.cast (type $2) (param $x (ref struct))
   ;; CHECK-NEXT:  (local $1 (ref $A))
   ;; CHECK-NEXT:  (drop
   ;; CHECK-NEXT:   (local.tee $1
-  ;; CHECK-NEXT:    (ref.cast $A
+  ;; CHECK-NEXT:    (ref.cast (ref $A)
   ;; CHECK-NEXT:     (local.get $x)
   ;; CHECK-NEXT:    )
   ;; CHECK-NEXT:   )
@@ -128,7 +128,7 @@
     ;; As $ref.as but with ref.casts: we should use the cast value after it has
     ;; been computed, in both gets.
     (drop
-      (ref.cast $A
+      (ref.cast (ref $A)
         (local.get $x)
       )
     )
@@ -140,11 +140,11 @@
     )
   )
 
-  ;; CHECK:      (func $not-past-set (type $ref|struct|_=>_none) (param $x (ref struct))
+  ;; CHECK:      (func $not-past-set (type $2) (param $x (ref struct))
   ;; CHECK-NEXT:  (local $1 (ref $A))
   ;; CHECK-NEXT:  (drop
   ;; CHECK-NEXT:   (local.tee $1
-  ;; CHECK-NEXT:    (ref.cast $A
+  ;; CHECK-NEXT:    (ref.cast (ref $A)
   ;; CHECK-NEXT:     (local.get $x)
   ;; CHECK-NEXT:    )
   ;; CHECK-NEXT:   )
@@ -161,7 +161,7 @@
   ;; CHECK-NEXT: )
   (func $not-past-set (param $x (ref struct))
     (drop
-      (ref.cast $A
+      (ref.cast (ref $A)
         (local.get $x)
       )
     )
@@ -177,11 +177,11 @@
     )
   )
 
-  ;; CHECK:      (func $yes-past-call (type $ref|struct|_=>_none) (param $x (ref struct))
+  ;; CHECK:      (func $yes-past-call (type $2) (param $x (ref struct))
   ;; CHECK-NEXT:  (local $1 (ref $A))
   ;; CHECK-NEXT:  (drop
   ;; CHECK-NEXT:   (local.tee $1
-  ;; CHECK-NEXT:    (ref.cast $A
+  ;; CHECK-NEXT:    (ref.cast (ref $A)
   ;; CHECK-NEXT:     (local.get $x)
   ;; CHECK-NEXT:    )
   ;; CHECK-NEXT:   )
@@ -195,7 +195,7 @@
   ;; CHECK-NEXT: )
   (func $yes-past-call (param $x (ref struct))
     (drop
-      (ref.cast $A
+      (ref.cast (ref $A)
         (local.get $x)
       )
     )
@@ -209,11 +209,11 @@
     )
   )
 
-  ;; CHECK:      (func $not-past-call_ref (type $ref|struct|_=>_none) (param $x (ref struct))
+  ;; CHECK:      (func $not-past-call_ref (type $2) (param $x (ref struct))
   ;; CHECK-NEXT:  (local $1 (ref $A))
   ;; CHECK-NEXT:  (drop
   ;; CHECK-NEXT:   (local.tee $1
-  ;; CHECK-NEXT:    (ref.cast $A
+  ;; CHECK-NEXT:    (ref.cast (ref $A)
   ;; CHECK-NEXT:     (local.get $x)
   ;; CHECK-NEXT:    )
   ;; CHECK-NEXT:   )
@@ -227,7 +227,7 @@
   ;; CHECK-NEXT: )
   (func $not-past-call_ref (param $x (ref struct))
     (drop
-      (ref.cast $A
+      (ref.cast (ref $A)
         (local.get $x)
       )
     )
@@ -240,13 +240,13 @@
     )
   )
 
-  ;; CHECK:      (func $not-backwards-past-call (type $ref|struct|_=>_none) (param $x (ref struct))
+  ;; CHECK:      (func $not-backwards-past-call (type $2) (param $x (ref struct))
   ;; CHECK-NEXT:  (drop
   ;; CHECK-NEXT:   (local.get $x)
   ;; CHECK-NEXT:  )
   ;; CHECK-NEXT:  (call $void)
   ;; CHECK-NEXT:  (drop
-  ;; CHECK-NEXT:   (ref.cast $A
+  ;; CHECK-NEXT:   (ref.cast (ref $A)
   ;; CHECK-NEXT:    (local.get $x)
   ;; CHECK-NEXT:   )
   ;; CHECK-NEXT:  )
@@ -259,13 +259,13 @@
     )
     (call $void)
     (drop
-      (ref.cast $A
+      (ref.cast (ref $A)
         (local.get $x)
       )
     )
   )
 
-  ;; CHECK:      (func $not-backwards-past-call_ref (type $ref|struct|_=>_none) (param $x (ref struct))
+  ;; CHECK:      (func $not-backwards-past-call_ref (type $2) (param $x (ref struct))
   ;; CHECK-NEXT:  (drop
   ;; CHECK-NEXT:   (local.get $x)
   ;; CHECK-NEXT:  )
@@ -273,7 +273,7 @@
   ;; CHECK-NEXT:   (ref.func $void)
   ;; CHECK-NEXT:  )
   ;; CHECK-NEXT:  (drop
-  ;; CHECK-NEXT:   (ref.cast $A
+  ;; CHECK-NEXT:   (ref.cast (ref $A)
   ;; CHECK-NEXT:    (local.get $x)
   ;; CHECK-NEXT:   )
   ;; CHECK-NEXT:  )
@@ -287,18 +287,18 @@
       (ref.func $void)
     )
     (drop
-      (ref.cast $A
+      (ref.cast (ref $A)
         (local.get $x)
       )
     )
   )
 
-  ;; CHECK:      (func $best (type $ref|struct|_=>_none) (param $x (ref struct))
+  ;; CHECK:      (func $best (type $2) (param $x (ref struct))
   ;; CHECK-NEXT:  (local $1 (ref $A))
   ;; CHECK-NEXT:  (local $2 (ref $B))
   ;; CHECK-NEXT:  (drop
   ;; CHECK-NEXT:   (local.tee $1
-  ;; CHECK-NEXT:    (ref.cast $A
+  ;; CHECK-NEXT:    (ref.cast (ref $A)
   ;; CHECK-NEXT:     (local.get $x)
   ;; CHECK-NEXT:    )
   ;; CHECK-NEXT:   )
@@ -314,7 +314,7 @@
   ;; CHECK-NEXT:  )
   ;; CHECK-NEXT:  (drop
   ;; CHECK-NEXT:   (local.tee $2
-  ;; CHECK-NEXT:    (ref.cast $B
+  ;; CHECK-NEXT:    (ref.cast (ref $B)
   ;; CHECK-NEXT:     (local.get $1)
   ;; CHECK-NEXT:    )
   ;; CHECK-NEXT:   )
@@ -328,7 +328,7 @@
   ;; CHECK-NEXT: )
   (func $best (param $x (ref struct))
     (drop
-      (ref.cast $A
+      (ref.cast (ref $A)
         (local.get $x)
       )
     )
@@ -345,7 +345,7 @@
       (i32.const 20)
     )
     (drop
-      (ref.cast $B
+      (ref.cast (ref $B)
         (local.get $x)
       )
     )
@@ -358,11 +358,11 @@
     )
   )
 
-  ;; CHECK:      (func $best-2 (type $ref|struct|_=>_none) (param $x (ref struct))
+  ;; CHECK:      (func $best-2 (type $2) (param $x (ref struct))
   ;; CHECK-NEXT:  (local $1 (ref $B))
   ;; CHECK-NEXT:  (drop
   ;; CHECK-NEXT:   (local.tee $1
-  ;; CHECK-NEXT:    (ref.cast $B
+  ;; CHECK-NEXT:    (ref.cast (ref $B)
   ;; CHECK-NEXT:     (local.get $x)
   ;; CHECK-NEXT:    )
   ;; CHECK-NEXT:   )
@@ -371,7 +371,7 @@
   ;; CHECK-NEXT:   (local.get $1)
   ;; CHECK-NEXT:  )
   ;; CHECK-NEXT:  (drop
-  ;; CHECK-NEXT:   (ref.cast $B
+  ;; CHECK-NEXT:   (ref.cast (ref $B)
   ;; CHECK-NEXT:    (local.get $1)
   ;; CHECK-NEXT:   )
   ;; CHECK-NEXT:  )
@@ -383,7 +383,7 @@
     ;; As above, but with the casts reversed. Now we should use $B in both
     ;; gets.
     (drop
-      (ref.cast $B
+      (ref.cast (ref $B)
         (local.get $x)
       )
     )
@@ -391,7 +391,7 @@
       (local.get $x)
     )
     (drop
-      (ref.cast $A
+      (ref.cast (ref $A)
         (local.get $x)
       )
     )
@@ -400,11 +400,11 @@
     )
   )
 
-  ;; CHECK:      (func $fallthrough (type $ref|struct|_=>_none) (param $x (ref struct))
+  ;; CHECK:      (func $fallthrough (type $2) (param $x (ref struct))
   ;; CHECK-NEXT:  (local $1 (ref $A))
   ;; CHECK-NEXT:  (drop
   ;; CHECK-NEXT:   (local.tee $1
-  ;; CHECK-NEXT:    (ref.cast $A
+  ;; CHECK-NEXT:    (ref.cast (ref $A)
   ;; CHECK-NEXT:     (block (result (ref struct))
   ;; CHECK-NEXT:      (local.get $x)
   ;; CHECK-NEXT:     )
@@ -417,7 +417,7 @@
   ;; CHECK-NEXT: )
   (func $fallthrough (param $x (ref struct))
     (drop
-      (ref.cast $A
+      (ref.cast (ref $A)
         ;; We look through the block, and optimize.
         (block (result (ref struct))
           (local.get $x)
@@ -429,15 +429,17 @@
     )
   )
 
-  ;; CHECK:      (func $past-basic-block (type $ref|struct|_=>_none) (param $x (ref struct))
+  ;; CHECK:      (func $past-basic-block (type $2) (param $x (ref struct))
   ;; CHECK-NEXT:  (drop
-  ;; CHECK-NEXT:   (ref.cast $A
+  ;; CHECK-NEXT:   (ref.cast (ref $A)
   ;; CHECK-NEXT:    (local.get $x)
   ;; CHECK-NEXT:   )
   ;; CHECK-NEXT:  )
   ;; CHECK-NEXT:  (if
   ;; CHECK-NEXT:   (i32.const 0)
-  ;; CHECK-NEXT:   (return)
+  ;; CHECK-NEXT:   (then
+  ;; CHECK-NEXT:    (return)
+  ;; CHECK-NEXT:   )
   ;; CHECK-NEXT:  )
   ;; CHECK-NEXT:  (drop
   ;; CHECK-NEXT:   (local.get $x)
@@ -445,7 +447,7 @@
   ;; CHECK-NEXT: )
   (func $past-basic-block (param $x (ref struct))
     (drop
-      (ref.cast $A
+      (ref.cast (ref $A)
         (local.get $x)
       )
     )
@@ -453,14 +455,16 @@
     ;; this atm.
     (if
       (i32.const 0)
-      (return)
+      (then
+        (return)
+      )
     )
     (drop
       (local.get $x)
     )
   )
 
-  ;; CHECK:      (func $multiple (type $ref|struct|_ref|struct|_=>_none) (param $x (ref struct)) (param $y (ref struct))
+  ;; CHECK:      (func $multiple (type $7) (param $x (ref struct)) (param $y (ref struct))
   ;; CHECK-NEXT:  (local $a (ref struct))
   ;; CHECK-NEXT:  (local $b (ref struct))
   ;; CHECK-NEXT:  (local $4 (ref $A))
@@ -473,14 +477,14 @@
   ;; CHECK-NEXT:  )
   ;; CHECK-NEXT:  (drop
   ;; CHECK-NEXT:   (local.tee $4
-  ;; CHECK-NEXT:    (ref.cast $A
+  ;; CHECK-NEXT:    (ref.cast (ref $A)
   ;; CHECK-NEXT:     (local.get $a)
   ;; CHECK-NEXT:    )
   ;; CHECK-NEXT:   )
   ;; CHECK-NEXT:  )
   ;; CHECK-NEXT:  (drop
   ;; CHECK-NEXT:   (local.tee $5
-  ;; CHECK-NEXT:    (ref.cast $A
+  ;; CHECK-NEXT:    (ref.cast (ref $A)
   ;; CHECK-NEXT:     (local.get $b)
   ;; CHECK-NEXT:    )
   ;; CHECK-NEXT:   )
@@ -512,12 +516,12 @@
       (local.get $y)
     )
     (drop
-      (ref.cast $A
+      (ref.cast (ref $A)
         (local.get $a)
       )
     )
     (drop
-      (ref.cast $A
+      (ref.cast (ref $A)
         (local.get $b)
       )
     )
@@ -540,12 +544,12 @@
     )
   )
 
-  ;; CHECK:      (func $move-cast-1 (type $ref|struct|_=>_none) (param $x (ref struct))
+  ;; CHECK:      (func $move-cast-1 (type $2) (param $x (ref struct))
   ;; CHECK-NEXT:  (local $1 (ref $B))
   ;; CHECK-NEXT:  (drop
-  ;; CHECK-NEXT:   (ref.cast $B
+  ;; CHECK-NEXT:   (ref.cast (ref $B)
   ;; CHECK-NEXT:    (local.tee $1
-  ;; CHECK-NEXT:     (ref.cast $B
+  ;; CHECK-NEXT:     (ref.cast (ref $B)
   ;; CHECK-NEXT:      (local.get $x)
   ;; CHECK-NEXT:     )
   ;; CHECK-NEXT:    )
@@ -555,7 +559,7 @@
   ;; CHECK-NEXT:   (local.get $1)
   ;; CHECK-NEXT:  )
   ;; CHECK-NEXT:  (drop
-  ;; CHECK-NEXT:   (ref.cast $B
+  ;; CHECK-NEXT:   (ref.cast (ref $B)
   ;; CHECK-NEXT:    (local.get $1)
   ;; CHECK-NEXT:   )
   ;; CHECK-NEXT:  )
@@ -565,7 +569,7 @@
       ;; The later cast to $B will be moved between ref.cast $A
       ;; and local.get $x. This will cause this ref.cast $A to be
       ;; converted to a second ref.cast $B due to ReFinalize().
-      (ref.cast $A
+      (ref.cast (ref $A)
         (local.get $x)
       )
     )
@@ -575,25 +579,25 @@
     (drop
       ;; The most refined cast of $x is to $B, which we can move up to
       ;; the top and reuse from there.
-      (ref.cast $B
+      (ref.cast (ref $B)
         (local.get $x)
       )
     )
   )
 
-  ;; CHECK:      (func $move-cast-2 (type $ref|struct|_=>_none) (param $x (ref struct))
+  ;; CHECK:      (func $move-cast-2 (type $2) (param $x (ref struct))
   ;; CHECK-NEXT:  (local $1 (ref $B))
   ;; CHECK-NEXT:  (drop
-  ;; CHECK-NEXT:   (ref.cast $B
+  ;; CHECK-NEXT:   (ref.cast (ref $B)
   ;; CHECK-NEXT:    (local.tee $1
-  ;; CHECK-NEXT:     (ref.cast $B
+  ;; CHECK-NEXT:     (ref.cast (ref $B)
   ;; CHECK-NEXT:      (local.get $x)
   ;; CHECK-NEXT:     )
   ;; CHECK-NEXT:    )
   ;; CHECK-NEXT:   )
   ;; CHECK-NEXT:  )
   ;; CHECK-NEXT:  (drop
-  ;; CHECK-NEXT:   (ref.cast $B
+  ;; CHECK-NEXT:   (ref.cast (ref $B)
   ;; CHECK-NEXT:    (local.get $1)
   ;; CHECK-NEXT:   )
   ;; CHECK-NEXT:  )
@@ -606,13 +610,13 @@
       ;; As in $move-cast-1, the later cast to $B will be moved
       ;; between ref.cast $A and local.get $x, causing ref.cast $A
       ;; to be converted into a second ref.cast $B by ReFinalize();
-      (ref.cast $A
+      (ref.cast (ref $A)
         (local.get $x)
       )
     )
     (drop
       ;; This will be moved up to the first local.get $x.
-      (ref.cast $B
+      (ref.cast (ref $B)
         (local.get $x)
       )
     )
@@ -621,22 +625,22 @@
     )
   )
 
-  ;; CHECK:      (func $move-cast-3 (type $ref|struct|_=>_none) (param $x (ref struct))
+  ;; CHECK:      (func $move-cast-3 (type $2) (param $x (ref struct))
   ;; CHECK-NEXT:  (local $1 (ref $B))
   ;; CHECK-NEXT:  (drop
   ;; CHECK-NEXT:   (local.tee $1
-  ;; CHECK-NEXT:    (ref.cast $B
+  ;; CHECK-NEXT:    (ref.cast (ref $B)
   ;; CHECK-NEXT:     (local.get $x)
   ;; CHECK-NEXT:    )
   ;; CHECK-NEXT:   )
   ;; CHECK-NEXT:  )
   ;; CHECK-NEXT:  (drop
-  ;; CHECK-NEXT:   (ref.cast $B
+  ;; CHECK-NEXT:   (ref.cast (ref $B)
   ;; CHECK-NEXT:    (local.get $1)
   ;; CHECK-NEXT:   )
   ;; CHECK-NEXT:  )
   ;; CHECK-NEXT:  (drop
-  ;; CHECK-NEXT:   (ref.cast $B
+  ;; CHECK-NEXT:   (ref.cast (ref $B)
   ;; CHECK-NEXT:    (local.get $1)
   ;; CHECK-NEXT:   )
   ;; CHECK-NEXT:  )
@@ -647,34 +651,34 @@
     )
     (drop
       ;; Converted to $B by ReFinalize().
-      (ref.cast $A
+      (ref.cast (ref $A)
         (local.get $x)
       )
     )
     (drop
       ;; This will be moved up to the first local.get $x.
-      (ref.cast $B
+      (ref.cast (ref $B)
         (local.get $x)
       )
     )
   )
 
-  ;; CHECK:      (func $move-cast-4 (type $ref|struct|_=>_none) (param $x (ref struct))
+  ;; CHECK:      (func $move-cast-4 (type $2) (param $x (ref struct))
   ;; CHECK-NEXT:  (local $1 (ref $B))
   ;; CHECK-NEXT:  (drop
   ;; CHECK-NEXT:   (local.tee $1
-  ;; CHECK-NEXT:    (ref.cast $B
+  ;; CHECK-NEXT:    (ref.cast (ref $B)
   ;; CHECK-NEXT:     (local.get $x)
   ;; CHECK-NEXT:    )
   ;; CHECK-NEXT:   )
   ;; CHECK-NEXT:  )
   ;; CHECK-NEXT:  (drop
-  ;; CHECK-NEXT:   (ref.cast $B
+  ;; CHECK-NEXT:   (ref.cast (ref $B)
   ;; CHECK-NEXT:    (local.get $1)
   ;; CHECK-NEXT:   )
   ;; CHECK-NEXT:  )
   ;; CHECK-NEXT:  (drop
-  ;; CHECK-NEXT:   (ref.cast $B
+  ;; CHECK-NEXT:   (ref.cast (ref $B)
   ;; CHECK-NEXT:    (local.get $1)
   ;; CHECK-NEXT:   )
   ;; CHECK-NEXT:  )
@@ -685,29 +689,29 @@
     )
     (drop
       ;; This will be moved up to the first local.get $x.
-      (ref.cast $B
+      (ref.cast (ref $B)
         (local.get $x)
       )
     )
     (drop
       ;; Converted to $B by ReFinalize().
-      (ref.cast $A
+      (ref.cast (ref $A)
         (local.get $x)
       )
     )
   )
 
-  ;; CHECK:      (func $move-cast-5 (type $ref|struct|_=>_none) (param $x (ref struct))
+  ;; CHECK:      (func $move-cast-5 (type $2) (param $x (ref struct))
   ;; CHECK-NEXT:  (local $1 (ref $B))
   ;; CHECK-NEXT:  (drop
   ;; CHECK-NEXT:   (local.tee $1
-  ;; CHECK-NEXT:    (ref.cast $B
+  ;; CHECK-NEXT:    (ref.cast (ref $B)
   ;; CHECK-NEXT:     (local.get $x)
   ;; CHECK-NEXT:    )
   ;; CHECK-NEXT:   )
   ;; CHECK-NEXT:  )
   ;; CHECK-NEXT:  (drop
-  ;; CHECK-NEXT:   (ref.cast $B
+  ;; CHECK-NEXT:   (ref.cast (ref $B)
   ;; CHECK-NEXT:    (local.get $1)
   ;; CHECK-NEXT:   )
   ;; CHECK-NEXT:  )
@@ -719,13 +723,13 @@
     (drop
       ;; The first location is already the most refined cast, so nothing will be moved up.
       ;; (But we will save the cast to a local and re-use it below.)
-      (ref.cast $B
+      (ref.cast (ref $B)
         (local.get $x)
       )
     )
     (drop
       ;; Converted to $B by ReFinalize().
-      (ref.cast $A
+      (ref.cast (ref $A)
         (local.get $x)
       )
     )
@@ -734,11 +738,11 @@
     )
   )
 
-  ;; CHECK:      (func $move-cast-6 (type $ref|struct|_=>_none) (param $x (ref struct))
+  ;; CHECK:      (func $move-cast-6 (type $2) (param $x (ref struct))
   ;; CHECK-NEXT:  (local $1 (ref $B))
   ;; CHECK-NEXT:  (drop
   ;; CHECK-NEXT:   (local.tee $1
-  ;; CHECK-NEXT:    (ref.cast $B
+  ;; CHECK-NEXT:    (ref.cast (ref $B)
   ;; CHECK-NEXT:     (local.get $x)
   ;; CHECK-NEXT:    )
   ;; CHECK-NEXT:   )
@@ -747,7 +751,7 @@
   ;; CHECK-NEXT:   (local.get $1)
   ;; CHECK-NEXT:  )
   ;; CHECK-NEXT:  (drop
-  ;; CHECK-NEXT:   (ref.cast $B
+  ;; CHECK-NEXT:   (ref.cast (ref $B)
   ;; CHECK-NEXT:    (local.get $1)
   ;; CHECK-NEXT:   )
   ;; CHECK-NEXT:  )
@@ -755,7 +759,7 @@
   (func $move-cast-6 (param $x (ref struct))
     (drop
       ;; This is already the most refined cast, so nothing will be moved.
-      (ref.cast $B
+      (ref.cast (ref $B)
         (local.get $x)
       )
     )
@@ -764,18 +768,18 @@
     )
     (drop
       ;; Converted to $B by ReFinalize().
-      (ref.cast $A
+      (ref.cast (ref $A)
         (local.get $x)
       )
     )
   )
 
-  ;; CHECK:      (func $no-move-already-refined-local (type $ref|$B|_=>_none) (param $x (ref $B))
+  ;; CHECK:      (func $no-move-already-refined-local (type $9) (param $x (ref $B))
   ;; CHECK-NEXT:  (drop
   ;; CHECK-NEXT:   (local.get $x)
   ;; CHECK-NEXT:  )
   ;; CHECK-NEXT:  (drop
-  ;; CHECK-NEXT:   (ref.cast $B
+  ;; CHECK-NEXT:   (ref.cast (ref $B)
   ;; CHECK-NEXT:    (local.get $x)
   ;; CHECK-NEXT:   )
   ;; CHECK-NEXT:  )
@@ -787,13 +791,13 @@
     (drop
       ;; Since we know $x is of type $B, this cast to a less refined type $A
       ;; will not be moved higher.
-      (ref.cast $A
+      (ref.cast (ref $A)
         (local.get $x)
       )
     )
   )
 
-  ;; CHECK:      (func $no-move-ref.as-to-non-nullable-local (type $ref|struct|_=>_none) (param $x (ref struct))
+  ;; CHECK:      (func $no-move-ref.as-to-non-nullable-local (type $2) (param $x (ref struct))
   ;; CHECK-NEXT:  (drop
   ;; CHECK-NEXT:   (local.get $x)
   ;; CHECK-NEXT:  )
@@ -817,14 +821,16 @@
     )
   )
 
-  ;; CHECK:      (func $avoid-erroneous-cast-move (type $ref|$A|_=>_none) (param $x (ref $A))
+  ;; CHECK:      (func $avoid-erroneous-cast-move (type $6) (param $x (ref $A))
   ;; CHECK-NEXT:  (local $a (ref $A))
   ;; CHECK-NEXT:  (local.set $a
   ;; CHECK-NEXT:   (local.get $x)
   ;; CHECK-NEXT:  )
   ;; CHECK-NEXT:  (drop
-  ;; CHECK-NEXT:   (ref.cast $D
-  ;; CHECK-NEXT:    (local.get $x)
+  ;; CHECK-NEXT:   (ref.cast (ref $D)
+  ;; CHECK-NEXT:    (block (result anyref)
+  ;; CHECK-NEXT:     (local.get $x)
+  ;; CHECK-NEXT:    )
   ;; CHECK-NEXT:   )
   ;; CHECK-NEXT:  )
   ;; CHECK-NEXT: )
@@ -840,13 +846,15 @@
       (local.get $x)
     )
     (drop
-      (ref.cast $D
-        (local.get $x)
+      (ref.cast (ref $D)
+        (block (result anyref)
+          (local.get $x)
+        )
       )
     )
   )
 
-  ;; CHECK:      (func $move-as-1 (type $structref_=>_none) (param $x structref)
+  ;; CHECK:      (func $move-as-1 (type $3) (param $x structref)
   ;; CHECK-NEXT:  (local $1 (ref struct))
   ;; CHECK-NEXT:  (drop
   ;; CHECK-NEXT:   (local.tee $1
@@ -874,7 +882,7 @@
     )
   )
 
-  ;; CHECK:      (func $move-as-2 (type $structref_=>_none) (param $x structref)
+  ;; CHECK:      (func $move-as-2 (type $3) (param $x structref)
   ;; CHECK-NEXT:  (local $1 (ref struct))
   ;; CHECK-NEXT:  (drop
   ;; CHECK-NEXT:   (local.tee $1
@@ -900,7 +908,7 @@
     )
   )
 
-  ;; CHECK:      (func $move-cast-side-effects (type $ref|struct|_ref|struct|_=>_none) (param $x (ref struct)) (param $y (ref struct))
+  ;; CHECK:      (func $move-cast-side-effects (type $7) (param $x (ref struct)) (param $y (ref struct))
   ;; CHECK-NEXT:  (local $2 (ref $A))
   ;; CHECK-NEXT:  (local $3 (ref $B))
   ;; CHECK-NEXT:  (drop
@@ -911,20 +919,20 @@
   ;; CHECK-NEXT:  )
   ;; CHECK-NEXT:  (drop
   ;; CHECK-NEXT:   (local.tee $2
-  ;; CHECK-NEXT:    (ref.cast $A
+  ;; CHECK-NEXT:    (ref.cast (ref $A)
   ;; CHECK-NEXT:     (local.get $x)
   ;; CHECK-NEXT:    )
   ;; CHECK-NEXT:   )
   ;; CHECK-NEXT:  )
   ;; CHECK-NEXT:  (drop
   ;; CHECK-NEXT:   (local.tee $3
-  ;; CHECK-NEXT:    (ref.cast $B
+  ;; CHECK-NEXT:    (ref.cast (ref $B)
   ;; CHECK-NEXT:     (local.get $y)
   ;; CHECK-NEXT:    )
   ;; CHECK-NEXT:   )
   ;; CHECK-NEXT:  )
   ;; CHECK-NEXT:  (drop
-  ;; CHECK-NEXT:   (ref.cast $A
+  ;; CHECK-NEXT:   (ref.cast (ref $A)
   ;; CHECK-NEXT:    (local.get $2)
   ;; CHECK-NEXT:   )
   ;; CHECK-NEXT:  )
@@ -932,12 +940,12 @@
   ;; CHECK-NEXT:   (local.get $3)
   ;; CHECK-NEXT:  )
   ;; CHECK-NEXT:  (drop
-  ;; CHECK-NEXT:   (ref.cast $B
+  ;; CHECK-NEXT:   (ref.cast (ref $B)
   ;; CHECK-NEXT:    (local.get $3)
   ;; CHECK-NEXT:   )
   ;; CHECK-NEXT:  )
   ;; CHECK-NEXT:  (drop
-  ;; CHECK-NEXT:   (ref.cast $B
+  ;; CHECK-NEXT:   (ref.cast (ref $B)
   ;; CHECK-NEXT:    (local.get $x)
   ;; CHECK-NEXT:   )
   ;; CHECK-NEXT:  )
@@ -961,7 +969,7 @@
       (local.get $y)
     )
     (drop
-      (ref.cast $A
+      (ref.cast (ref $A)
         (local.get $x)
       )
     )
@@ -971,19 +979,19 @@
     )
     (drop
       ;; This can be moved past local.set $x.
-      (ref.cast $B
+      (ref.cast (ref $B)
         (local.get $y)
       )
     )
     (drop
       ;; This cannot be moved past local.set $x.
-      (ref.cast $B
+      (ref.cast (ref $B)
         (local.get $x)
       )
     )
   )
 
-  ;; CHECK:      (func $move-ref.as-for-separate-index (type $structref_structref_=>_none) (param $x structref) (param $y structref)
+  ;; CHECK:      (func $move-ref.as-for-separate-index (type $5) (param $x structref) (param $y structref)
   ;; CHECK-NEXT:  (local $2 (ref struct))
   ;; CHECK-NEXT:  (drop
   ;; CHECK-NEXT:   (local.get $x)
@@ -1035,12 +1043,12 @@
     )
   )
 
-  ;; CHECK:      (func $move-ref.as-and-ref.cast (type $structref_=>_none) (param $x structref)
+  ;; CHECK:      (func $move-ref.as-and-ref.cast (type $3) (param $x structref)
   ;; CHECK-NEXT:  (local $1 (ref $A))
   ;; CHECK-NEXT:  (drop
   ;; CHECK-NEXT:   (local.tee $1
   ;; CHECK-NEXT:    (ref.as_non_null
-  ;; CHECK-NEXT:     (ref.cast null $A
+  ;; CHECK-NEXT:     (ref.cast (ref null $A)
   ;; CHECK-NEXT:      (local.get $x)
   ;; CHECK-NEXT:     )
   ;; CHECK-NEXT:    )
@@ -1048,7 +1056,7 @@
   ;; CHECK-NEXT:  )
   ;; CHECK-NEXT:  (drop
   ;; CHECK-NEXT:   (ref.as_non_null
-  ;; CHECK-NEXT:    (ref.cast $A
+  ;; CHECK-NEXT:    (ref.cast (ref $A)
   ;; CHECK-NEXT:     (local.get $1)
   ;; CHECK-NEXT:    )
   ;; CHECK-NEXT:   )
@@ -1065,26 +1073,26 @@
       (ref.as_non_null
         ;; This will be converted to a non-nullable cast because the local we
         ;; save to in the optimization ($1) is now non-nullable.
-        (ref.cast null $A
+        (ref.cast (ref null $A)
           (local.get $x)
         )
       )
     )
   )
 
-  ;; CHECK:      (func $move-ref.as-and-ref.cast-2 (type $structref_=>_none) (param $x structref)
+  ;; CHECK:      (func $move-ref.as-and-ref.cast-2 (type $3) (param $x structref)
   ;; CHECK-NEXT:  (local $1 (ref $A))
   ;; CHECK-NEXT:  (drop
   ;; CHECK-NEXT:   (local.tee $1
   ;; CHECK-NEXT:    (ref.as_non_null
-  ;; CHECK-NEXT:     (ref.cast null $A
+  ;; CHECK-NEXT:     (ref.cast (ref null $A)
   ;; CHECK-NEXT:      (local.get $x)
   ;; CHECK-NEXT:     )
   ;; CHECK-NEXT:    )
   ;; CHECK-NEXT:   )
   ;; CHECK-NEXT:  )
   ;; CHECK-NEXT:  (drop
-  ;; CHECK-NEXT:   (ref.cast $A
+  ;; CHECK-NEXT:   (ref.cast (ref $A)
   ;; CHECK-NEXT:    (local.get $1)
   ;; CHECK-NEXT:   )
   ;; CHECK-NEXT:  )
@@ -1104,7 +1112,7 @@
     (drop
       ;; This is converted to ref.cast $A, because we will save $x to
       ;; a non-nullable $A local as part of the optimization.
-      (ref.cast null $A
+      (ref.cast (ref null $A)
         (local.get $x)
       )
     )
@@ -1115,12 +1123,12 @@
     )
   )
 
-  ;; CHECK:      (func $move-ref.as-and-ref.cast-3 (type $structref_=>_none) (param $x structref)
+  ;; CHECK:      (func $move-ref.as-and-ref.cast-3 (type $3) (param $x structref)
   ;; CHECK-NEXT:  (local $1 (ref $A))
   ;; CHECK-NEXT:  (drop
   ;; CHECK-NEXT:   (local.tee $1
   ;; CHECK-NEXT:    (ref.as_non_null
-  ;; CHECK-NEXT:     (ref.cast null $A
+  ;; CHECK-NEXT:     (ref.cast (ref null $A)
   ;; CHECK-NEXT:      (local.get $x)
   ;; CHECK-NEXT:     )
   ;; CHECK-NEXT:    )
@@ -1132,7 +1140,7 @@
   ;; CHECK-NEXT:   )
   ;; CHECK-NEXT:  )
   ;; CHECK-NEXT:  (drop
-  ;; CHECK-NEXT:   (ref.cast $A
+  ;; CHECK-NEXT:   (ref.cast (ref $A)
   ;; CHECK-NEXT:    (local.get $1)
   ;; CHECK-NEXT:   )
   ;; CHECK-NEXT:  )
@@ -1153,15 +1161,15 @@
     (drop
       ;; This is converted to ref.cast $A, because we will save $x to
       ;; a non-nullable $A local as part of the optimization.
-      (ref.cast null $A
+      (ref.cast (ref null $A)
         (local.get $x)
       )
     )
   )
 
-  ;; CHECK:      (func $unoptimizable-nested-casts (type $structref_=>_none) (param $x structref)
+  ;; CHECK:      (func $unoptimizable-nested-casts (type $3) (param $x structref)
   ;; CHECK-NEXT:  (drop
-  ;; CHECK-NEXT:   (ref.cast $B
+  ;; CHECK-NEXT:   (ref.cast (ref $B)
   ;; CHECK-NEXT:    (ref.as_non_null
   ;; CHECK-NEXT:     (local.get $x)
   ;; CHECK-NEXT:    )
@@ -1172,7 +1180,7 @@
     ;; No optimizations should be made here for this nested cast.
     ;; This test is here to ensure this.
     (drop
-      (ref.cast $B
+      (ref.cast (ref $B)
         (ref.as_non_null
           (local.get $x)
         )
@@ -1180,12 +1188,12 @@
     )
   )
 
-  ;; CHECK:      (func $no-move-over-self-tee (type $structref_structref_=>_none) (param $x structref) (param $y structref)
+  ;; CHECK:      (func $no-move-over-self-tee (type $5) (param $x structref) (param $y structref)
   ;; CHECK-NEXT:  (drop
   ;; CHECK-NEXT:   (local.get $x)
   ;; CHECK-NEXT:  )
   ;; CHECK-NEXT:  (drop
-  ;; CHECK-NEXT:   (ref.cast $A
+  ;; CHECK-NEXT:   (ref.cast (ref $A)
   ;; CHECK-NEXT:    (local.tee $x
   ;; CHECK-NEXT:     (local.get $x)
   ;; CHECK-NEXT:    )
@@ -1200,7 +1208,7 @@
       ;; We do not move this ref.cast of $x because $x is set by the local.tee,
       ;; and we do not move casts past a set of a local index. This is treated
       ;; like a local.set and we do not have a special case for this.
-      (ref.cast $A
+      (ref.cast (ref $A)
         (local.tee $x
           (local.get $x)
         )
@@ -1208,18 +1216,18 @@
     )
   )
 
-  ;; CHECK:      (func $move-over-tee (type $structref_structref_=>_none) (param $x structref) (param $y structref)
+  ;; CHECK:      (func $move-over-tee (type $5) (param $x structref) (param $y structref)
   ;; CHECK-NEXT:  (local $a structref)
   ;; CHECK-NEXT:  (local $3 (ref $A))
   ;; CHECK-NEXT:  (drop
   ;; CHECK-NEXT:   (local.tee $3
-  ;; CHECK-NEXT:    (ref.cast $A
+  ;; CHECK-NEXT:    (ref.cast (ref $A)
   ;; CHECK-NEXT:     (local.get $x)
   ;; CHECK-NEXT:    )
   ;; CHECK-NEXT:   )
   ;; CHECK-NEXT:  )
   ;; CHECK-NEXT:  (drop
-  ;; CHECK-NEXT:   (ref.cast $A
+  ;; CHECK-NEXT:   (ref.cast (ref $A)
   ;; CHECK-NEXT:    (local.tee $a
   ;; CHECK-NEXT:     (local.get $3)
   ;; CHECK-NEXT:    )
@@ -1233,7 +1241,7 @@
     )
     (drop
       ;; We can move this ref.cast because the local.tee sets another local index.
-      (ref.cast $A
+      (ref.cast (ref $A)
         (local.tee $a
           (local.get $x)
         )
@@ -1241,22 +1249,22 @@
     )
   )
 
-  ;; CHECK:      (func $move-identical-repeated-casts (type $ref|struct|_=>_none) (param $x (ref struct))
+  ;; CHECK:      (func $move-identical-repeated-casts (type $2) (param $x (ref struct))
   ;; CHECK-NEXT:  (local $1 (ref $A))
   ;; CHECK-NEXT:  (drop
   ;; CHECK-NEXT:   (local.tee $1
-  ;; CHECK-NEXT:    (ref.cast $A
+  ;; CHECK-NEXT:    (ref.cast (ref $A)
   ;; CHECK-NEXT:     (local.get $x)
   ;; CHECK-NEXT:    )
   ;; CHECK-NEXT:   )
   ;; CHECK-NEXT:  )
   ;; CHECK-NEXT:  (drop
-  ;; CHECK-NEXT:   (ref.cast $A
+  ;; CHECK-NEXT:   (ref.cast (ref $A)
   ;; CHECK-NEXT:    (local.get $1)
   ;; CHECK-NEXT:   )
   ;; CHECK-NEXT:  )
   ;; CHECK-NEXT:  (drop
-  ;; CHECK-NEXT:   (ref.cast $A
+  ;; CHECK-NEXT:   (ref.cast (ref $A)
   ;; CHECK-NEXT:    (local.get $1)
   ;; CHECK-NEXT:   )
   ;; CHECK-NEXT:  )
@@ -1269,25 +1277,25 @@
       (local.get $x)
     )
     (drop
-      (ref.cast $A
+      (ref.cast (ref $A)
         (local.get $x)
       )
     )
     (drop
-      (ref.cast $A
+      (ref.cast (ref $A)
         (local.get $x)
       )
     )
   )
 
-  ;; CHECK:      (func $no-move-past-non-linear (type $structref_=>_none) (param $x structref)
+  ;; CHECK:      (func $no-move-past-non-linear (type $3) (param $x structref)
   ;; CHECK-NEXT:  (local $1 (ref struct))
   ;; CHECK-NEXT:  (drop
   ;; CHECK-NEXT:   (local.get $x)
   ;; CHECK-NEXT:  )
   ;; CHECK-NEXT:  (if
   ;; CHECK-NEXT:   (i32.const 0)
-  ;; CHECK-NEXT:   (block
+  ;; CHECK-NEXT:   (then
   ;; CHECK-NEXT:    (drop
   ;; CHECK-NEXT:     (local.tee $1
   ;; CHECK-NEXT:      (ref.as_non_null
@@ -1303,7 +1311,7 @@
   ;; CHECK-NEXT:   )
   ;; CHECK-NEXT:  )
   ;; CHECK-NEXT:  (drop
-  ;; CHECK-NEXT:   (ref.cast $A
+  ;; CHECK-NEXT:   (ref.cast (ref $A)
   ;; CHECK-NEXT:    (local.get $x)
   ;; CHECK-NEXT:   )
   ;; CHECK-NEXT:  )
@@ -1318,16 +1326,18 @@
     )
     (if
       (i32.const 0)
-      (block
-        (drop
-          ;; The ref.as_non_null can be moved here because
-          ;; it is in the same block in the same arm of the
-          ;; if statement.
-          (local.get $x)
-        )
-        (drop
-          (ref.as_non_null
+      (then
+        (block
+          (drop
+            ;; The ref.as_non_null can be moved here because
+            ;; it is in the same block in the same arm of the
+            ;; if statement.
             (local.get $x)
+          )
+          (drop
+            (ref.as_non_null
+              (local.get $x)
+            )
           )
         )
       )
@@ -1336,13 +1346,50 @@
       ;; This cannot be moved earlier because it is blocked by
       ;; the if statement. All state information is cleared when
       ;; entering and leaving the if statement.
-      (ref.cast $A
+      (ref.cast (ref $A)
         (local.get $x)
       )
     )
   )
 
-  ;; CHECK:      (func $get (type $none_=>_ref|struct|) (result (ref struct))
+  ;; CHECK:      (func $local-tee (type $2) (param $x (ref struct))
+  ;; CHECK-NEXT:  (local $y (ref struct))
+  ;; CHECK-NEXT:  (local $2 (ref $A))
+  ;; CHECK-NEXT:  (drop
+  ;; CHECK-NEXT:   (local.tee $2
+  ;; CHECK-NEXT:    (ref.cast (ref $A)
+  ;; CHECK-NEXT:     (local.tee $y
+  ;; CHECK-NEXT:      (local.get $x)
+  ;; CHECK-NEXT:     )
+  ;; CHECK-NEXT:    )
+  ;; CHECK-NEXT:   )
+  ;; CHECK-NEXT:  )
+  ;; CHECK-NEXT:  (drop
+  ;; CHECK-NEXT:   (local.get $2)
+  ;; CHECK-NEXT:  )
+  ;; CHECK-NEXT:  (drop
+  ;; CHECK-NEXT:   (local.get $2)
+  ;; CHECK-NEXT:  )
+  ;; CHECK-NEXT: )
+  (func $local-tee (param $x (ref struct))
+    (local $y (ref struct))
+    ;; We should use the cast value after it has been computed, in both gets.
+    (drop
+      (ref.cast (ref $A)
+        (local.tee $y
+          (local.get $x)
+        )
+      )
+    )
+    (drop
+      (local.get $x)
+    )
+    (drop
+      (local.get $y)
+    )
+  )
+
+  ;; CHECK:      (func $get (type $11) (result (ref struct))
   ;; CHECK-NEXT:  (unreachable)
   ;; CHECK-NEXT: )
   (func $get (result (ref struct))
@@ -1351,7 +1398,6 @@
   )
 
   ;; CHECK:      (func $void (type $void)
-  ;; CHECK-NEXT:  (nop)
   ;; CHECK-NEXT: )
   (func $void
     ;; Helper for the above.

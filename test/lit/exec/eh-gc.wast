@@ -6,19 +6,18 @@
  (tag $tag (param externref))
 
  ;; CHECK:      [fuzz-exec] calling catch-null
- (func "catch-null"
-  (try $label$3
-   (do
-    ;; Throw a null.
-    (throw $tag
-     (ref.null noextern)
-    )
-   )
-   (catch $tag
-    ;; The popped type here is more refined than external (it is a bottom type)
-    ;; which we should not error on.
-    (drop
-     (pop externref)
+ (func $catch-null (export "catch-null")
+  (block $tryend
+   ;; The actual resulting value type is more refined than externref (it is a
+   ;; bottom type) which we should not error on.
+   (drop
+    (block $catch (result externref)
+      (try_table (catch $tag $catch)
+       (throw $tag
+        (ref.null noextern)
+       )
+      )
+      (br $tryend)
     )
    )
   )
